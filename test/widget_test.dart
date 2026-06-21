@@ -31,9 +31,8 @@ void main() {
     expect(find.text('10 m'), findsNWidgets(2));
     expect(find.text('lung: 100 m'), findsNWidgets(2));
 
-    // Top zone: config gear, help, and START control present.
+    // Top zone: config gear and START control present.
     expect(find.byIcon(Icons.settings), findsOneWidget);
-    expect(find.byIcon(Icons.help_outline), findsOneWidget);
     expect(find.text('START'), findsOneWidget);
   });
 

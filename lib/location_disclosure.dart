@@ -6,9 +6,10 @@ import 'theme/retrometer_theme.dart';
 
 const _kDisclosureShownKey = 'retrometer.location_disclosure_shown';
 
-/// Privacy policy URL shown in the disclosure dialog. **TODO:** replace with
-/// your published policy URL before submitting to Google Play.
-const _kPrivacyPolicyUrl = 'https://example.com/retrometer/privacy-policy';
+/// Privacy policy URL shown in the disclosure dialog and on the About screen.
+/// **TODO:** replace with your published policy URL before submitting to
+/// Google Play.
+const kPrivacyPolicyUrl = 'https://example.com/retrometer/privacy-policy';
 
 /// Google Play–style Prominent Disclosure for location access.
 ///
@@ -134,7 +135,7 @@ class _PrivacyPolicyLink extends StatelessWidget {
   const _PrivacyPolicyLink();
 
   Future<void> _open() async {
-    await launchUrl(Uri.parse(_kPrivacyPolicyUrl));
+    await launchUrl(Uri.parse(kPrivacyPolicyUrl));
   }
 
   @override

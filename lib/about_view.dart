@@ -2,16 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'guide_view.dart';
+import 'location_disclosure.dart';
 import 'services/gps_service.dart';
 import 'theme/retrometer_theme.dart';
 
 /// Full-screen "Despre aplicație" — app name, version (from package_info_plus),
-/// the user-guide link, and the permissions the app uses with their current
-/// state. The location permission is queried live through the injectable
-/// [GpsService] (so tests can override it); vibration and wakelock are normal
-/// permissions granted at install time, so they are shown as always granted.
+/// and links to the user guide, the privacy policy, and the permissions page.
 class AboutScreen extends ConsumerStatefulWidget {
   const AboutScreen({super.key});
 
@@ -20,10 +19,83 @@ class AboutScreen extends ConsumerStatefulWidget {
 }
 
 class _AboutScreenState extends ConsumerState<AboutScreen> {
-  // Resolved once; the builders show fallbacks while they load.
+  // Resolved once; the builder shows a fallback while it loads.
   late final Future<PackageInfo> _info = PackageInfo.fromPlatform();
 
-  Future<_PermStatus> _locationStatus() async {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Despre aplicație')),
+      body: SafeArea(
+        child: FutureBuilder<PackageInfo>(
+          future: _info,
+          builder: (context, snapshot) {
+            final info = snapshot.data;
+            final loading = snapshot.connectionState != ConnectionState.done;
+            final version = (info?.version.isNotEmpty ?? false) ? info!.version : '—';
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(16, 28, 16, 32),
+              children: [
+                _AppHeader(loading: loading),
+                const SizedBox(height: 28),
+                _VersionBadge(version: version),
+                const SizedBox(height: 28),
+                _NavRow(
+                  icon: Icons.menu_book,
+                  label: 'Ghid de utilizare',
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const GuideScreen(),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _NavRow(
+                  icon: Icons.privacy_tip,
+                  label: 'Politică de confidențialitate',
+                  onTap: () => launchUrl(Uri.parse(kPrivacyPolicyUrl)),
+                ),
+                const SizedBox(height: 12),
+                _NavRow(
+                  icon: Icons.lock_outline,
+                  label: 'Permisiuni',
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const PermissionsScreen(),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+/// Full-screen list of the permissions the app uses with their current state.
+///
+/// The location permission is queried live through the injectable [GpsService]
+/// (so tests can override it); vibration and wakelock are normal permissions
+/// granted at install time, so they are shown as always granted.
+class PermissionsScreen extends ConsumerStatefulWidget {
+  const PermissionsScreen({super.key});
+
+  @override
+  ConsumerState<PermissionsScreen> createState() => _PermissionsScreenState();
+}
+
+class _PermissionsScreenState extends ConsumerState<PermissionsScreen> {
+  late final Future<_PermStatus> _locationStatus;
+
+  @override
+  void initState() {
+    super.initState();
+    _locationStatus = _resolveLocationStatus();
+  }
+
+  Future<_PermStatus> _resolveLocationStatus() async {
     final gps = ref.read(gpsServiceProvider);
     final service = await gps.isLocationServiceEnabled();
     if (!service) {
@@ -47,60 +119,50 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Despre aplicație')),
+      appBar: AppBar(title: const Text('Permisiuni')),
       body: SafeArea(
-        child: FutureBuilder<PackageInfo>(
-          future: _info,
-          builder: (context, snapshot) {
-            final info = snapshot.data;
-            final loading = snapshot.connectionState != ConnectionState.done;
-            final version = (info?.version.isNotEmpty ?? false) ? info!.version : '—';
-            return ListView(
-              padding: const EdgeInsets.fromLTRB(16, 28, 16, 32),
-              children: [
-                _AppHeader(loading: loading),
-                const SizedBox(height: 28),
-                _VersionBadge(version: version),
-                const SizedBox(height: 28),
-                _GuideLink(onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const GuideScreen(),
-                  ),
-                )),
-                const SizedBox(height: 28),
-                const _SectionLabel('Permisiuni'),
-                FutureBuilder<_PermStatus>(
-                  future: _locationStatus(),
-                  builder: (context, snap) {
-                    final status =
-                        snap.data ?? const _PermStatus('Se verifică…', RetrometerColors.textMuted);
-                    return _PermissionRow(
-                      icon: Icons.location_on,
-                      name: 'Locație (GPS)',
-                      purpose: 'Distanță, viteză și geofence pentru stagii.',
-                      status: status,
-                    );
-                  },
-                ),
-                const _PermissionRow(
-                  icon: Icons.vibration,
-                  name: 'Vibrație',
-                  purpose: 'Feedback haptic la ajustări și auto-start/stop.',
-                  status: _PermStatus(
-                      'Acordată', RetrometerColors.primary),
-                  note: 'Permisiune normală — acordată la instalare.',
-                ),
-                const _PermissionRow(
-                  icon: Icons.lightbulb_outline,
-                  name: 'Ecran aprins',
-                  purpose: 'Ține ecranul activ cât durează un stage.',
-                  status: _PermStatus(
-                      'Acordată', RetrometerColors.primary),
-                  note: 'Permisiune normală — acordată la instalare.',
-                ),
-              ],
-            );
-          },
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+          children: [
+            Text(
+              'Retrometer folosește următoarele permisiuni. Locația este '
+              'verificată în timp real; vibrația și ecranul aprins sunt '
+              'permisiuni normale, acordate automat la instalare.',
+              style: TextStyle(
+                color: RetrometerColors.textSecondary,
+                fontSize: 14,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 20),
+            FutureBuilder<_PermStatus>(
+              future: _locationStatus,
+              builder: (context, snap) {
+                final status = snap.data ??
+                    const _PermStatus('Se verifică…', RetrometerColors.textMuted);
+                return _PermissionRow(
+                  icon: Icons.location_on,
+                  name: 'Locație (GPS)',
+                  purpose: 'Distanță, viteză și geofence pentru stagii.',
+                  status: status,
+                );
+              },
+            ),
+            const _PermissionRow(
+              icon: Icons.vibration,
+              name: 'Vibrație',
+              purpose: 'Feedback haptic la ajustări și auto-start/stop.',
+              status: _PermStatus('Acordată', RetrometerColors.primary),
+              note: 'Permisiune normală — acordată la instalare.',
+            ),
+            const _PermissionRow(
+              icon: Icons.lightbulb_outline,
+              name: 'Ecran aprins',
+              purpose: 'Ține ecranul activ cât durează un stage.',
+              status: _PermStatus('Acordată', RetrometerColors.primary),
+              note: 'Permisiune normală — acordată la instalare.',
+            ),
+          ],
         ),
       ),
     );
@@ -115,16 +177,37 @@ class _PermStatus {
   final Color color;
 }
 
-class _SectionLabel extends StatelessWidget {
-  const _SectionLabel(this.text);
+/// A tappable nav row (icon + label + chevron) styled like the guide link.
+class _NavRow extends StatelessWidget {
+  const _NavRow({required this.icon, required this.label, required this.onTap});
 
-  final String text;
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(text, style: RetrometerTextStyles.guideSection),
+    return Material(
+      color: RetrometerColors.surface,
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Icon(icon, color: RetrometerColors.primary, size: 22),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(label, style: RetrometerTextStyles.meta),
+              ),
+              Icon(Icons.chevron_right,
+                  color: RetrometerColors.textSecondary, size: 22),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -188,40 +271,6 @@ class _VersionBadge extends StatelessWidget {
           const SizedBox(width: 8),
           Text('Versiune $version', style: RetrometerTextStyles.metaStrong),
         ],
-      ),
-    );
-  }
-}
-
-class _GuideLink extends StatelessWidget {
-  const _GuideLink({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: RetrometerColors.surface,
-      borderRadius: BorderRadius.circular(10),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(10),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Row(
-            children: [
-              Icon(Icons.menu_book,
-                  color: RetrometerColors.primary, size: 22),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text('Ghid de utilizare',
-                    style: RetrometerTextStyles.meta),
-              ),
-              Icon(Icons.chevron_right,
-                  color: RetrometerColors.textSecondary, size: 22),
-            ],
-          ),
-        ),
       ),
     );
   }

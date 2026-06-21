@@ -1320,7 +1320,13 @@ mixin _$Competition {
   String get id => throw _privateConstructorUsedError;
   String get name => throw _privateConstructorUsedError;
   String get location => throw _privateConstructorUsedError;
-  DateTime? get date => throw _privateConstructorUsedError;
+
+  /// First day of the event (optional). `null` = not set.
+  DateTime? get startDate => throw _privateConstructorUsedError;
+
+  /// Last day of the event (optional). `null` or equal to [startDate] means a
+  /// single-day event. When set, must be on/after [startDate].
+  DateTime? get endDate => throw _privateConstructorUsedError;
   String get pilot => throw _privateConstructorUsedError;
   String get copilot => throw _privateConstructorUsedError;
   String get car => throw _privateConstructorUsedError;
@@ -1351,7 +1357,8 @@ abstract class $CompetitionCopyWith<$Res> {
     String id,
     String name,
     String location,
-    DateTime? date,
+    DateTime? startDate,
+    DateTime? endDate,
     String pilot,
     String copilot,
     String car,
@@ -1384,7 +1391,8 @@ class _$CompetitionCopyWithImpl<$Res, $Val extends Competition>
     Object? id = null,
     Object? name = null,
     Object? location = null,
-    Object? date = freezed,
+    Object? startDate = freezed,
+    Object? endDate = freezed,
     Object? pilot = null,
     Object? copilot = null,
     Object? car = null,
@@ -1411,9 +1419,13 @@ class _$CompetitionCopyWithImpl<$Res, $Val extends Competition>
                 ? _value.location
                 : location // ignore: cast_nullable_to_non_nullable
                       as String,
-            date: freezed == date
-                ? _value.date
-                : date // ignore: cast_nullable_to_non_nullable
+            startDate: freezed == startDate
+                ? _value.startDate
+                : startDate // ignore: cast_nullable_to_non_nullable
+                      as DateTime?,
+            endDate: freezed == endDate
+                ? _value.endDate
+                : endDate // ignore: cast_nullable_to_non_nullable
                       as DateTime?,
             pilot: null == pilot
                 ? _value.pilot
@@ -1478,7 +1490,8 @@ abstract class _$$CompetitionImplCopyWith<$Res>
     String id,
     String name,
     String location,
-    DateTime? date,
+    DateTime? startDate,
+    DateTime? endDate,
     String pilot,
     String copilot,
     String car,
@@ -1510,7 +1523,8 @@ class __$$CompetitionImplCopyWithImpl<$Res>
     Object? id = null,
     Object? name = null,
     Object? location = null,
-    Object? date = freezed,
+    Object? startDate = freezed,
+    Object? endDate = freezed,
     Object? pilot = null,
     Object? copilot = null,
     Object? car = null,
@@ -1537,9 +1551,13 @@ class __$$CompetitionImplCopyWithImpl<$Res>
             ? _value.location
             : location // ignore: cast_nullable_to_non_nullable
                   as String,
-        date: freezed == date
-            ? _value.date
-            : date // ignore: cast_nullable_to_non_nullable
+        startDate: freezed == startDate
+            ? _value.startDate
+            : startDate // ignore: cast_nullable_to_non_nullable
+                  as DateTime?,
+        endDate: freezed == endDate
+            ? _value.endDate
+            : endDate // ignore: cast_nullable_to_non_nullable
                   as DateTime?,
         pilot: null == pilot
             ? _value.pilot
@@ -1597,7 +1615,8 @@ class _$CompetitionImpl extends _Competition {
     required this.id,
     this.name = '',
     this.location = '',
-    this.date,
+    this.startDate,
+    this.endDate,
     this.pilot = '',
     this.copilot = '',
     this.car = '',
@@ -1620,8 +1639,15 @@ class _$CompetitionImpl extends _Competition {
   @override
   @JsonKey()
   final String location;
+
+  /// First day of the event (optional). `null` = not set.
   @override
-  final DateTime? date;
+  final DateTime? startDate;
+
+  /// Last day of the event (optional). `null` or equal to [startDate] means a
+  /// single-day event. When set, must be on/after [startDate].
+  @override
+  final DateTime? endDate;
   @override
   @JsonKey()
   final String pilot;
@@ -1662,7 +1688,7 @@ class _$CompetitionImpl extends _Competition {
 
   @override
   String toString() {
-    return 'Competition(id: $id, name: $name, location: $location, date: $date, pilot: $pilot, copilot: $copilot, car: $car, category: $category, totalTeams: $totalTeams, contactPerson: $contactPerson, contactPhone: $contactPhone, cost: $cost, overallStanding: $overallStanding, categoryStanding: $categoryStanding, stages: $stages)';
+    return 'Competition(id: $id, name: $name, location: $location, startDate: $startDate, endDate: $endDate, pilot: $pilot, copilot: $copilot, car: $car, category: $category, totalTeams: $totalTeams, contactPerson: $contactPerson, contactPhone: $contactPhone, cost: $cost, overallStanding: $overallStanding, categoryStanding: $categoryStanding, stages: $stages)';
   }
 
   @override
@@ -1674,7 +1700,9 @@ class _$CompetitionImpl extends _Competition {
             (identical(other.name, name) || other.name == name) &&
             (identical(other.location, location) ||
                 other.location == location) &&
-            (identical(other.date, date) || other.date == date) &&
+            (identical(other.startDate, startDate) ||
+                other.startDate == startDate) &&
+            (identical(other.endDate, endDate) || other.endDate == endDate) &&
             (identical(other.pilot, pilot) || other.pilot == pilot) &&
             (identical(other.copilot, copilot) || other.copilot == copilot) &&
             (identical(other.car, car) || other.car == car) &&
@@ -1700,7 +1728,8 @@ class _$CompetitionImpl extends _Competition {
     id,
     name,
     location,
-    date,
+    startDate,
+    endDate,
     pilot,
     copilot,
     car,
@@ -1728,7 +1757,8 @@ abstract class _Competition extends Competition {
     required final String id,
     final String name,
     final String location,
-    final DateTime? date,
+    final DateTime? startDate,
+    final DateTime? endDate,
     final String pilot,
     final String copilot,
     final String car,
@@ -1749,8 +1779,15 @@ abstract class _Competition extends Competition {
   String get name;
   @override
   String get location;
+
+  /// First day of the event (optional). `null` = not set.
   @override
-  DateTime? get date;
+  DateTime? get startDate;
+
+  /// Last day of the event (optional). `null` or equal to [startDate] means a
+  /// single-day event. When set, must be on/after [startDate].
+  @override
+  DateTime? get endDate;
   @override
   String get pilot;
   @override

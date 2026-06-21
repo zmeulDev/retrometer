@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -287,7 +288,8 @@ void main() {
       cost: 150.0,
       overallStanding: 3,
       categoryStanding: 2,
-      date: DateTime(2026, 6, 21),
+      startDate: DateTime(2026, 6, 21),
+      endDate: DateTime(2026, 6, 23),
     );
     final encoded = competitionsToJson([c]);
     final decoded = competitionsFromJson(encoded).single;
@@ -303,7 +305,24 @@ void main() {
     expect(decoded.cost, 150.0);
     expect(decoded.overallStanding, 3);
     expect(decoded.categoryStanding, 2);
-    expect(decoded.date, DateTime(2026, 6, 21));
+    expect(decoded.startDate, DateTime(2026, 6, 21));
+    expect(decoded.endDate, DateTime(2026, 6, 23));
     expect(decoded.stages.single.id, _stageId);
+  });
+
+  test('legacy single-date payload migrates into startDate', () {
+    // Pre-multi-day wire format: a `date` key and no `startDate`/`endDate`.
+    final legacy = jsonEncode([
+      {
+        'id': _competitionId,
+        'name': 'Raliul Vechi',
+        'location': 'Cluj',
+        'date': DateTime(2026, 6, 21).toIso8601String(),
+        'stages': [],
+      },
+    ]);
+    final decoded = competitionsFromJson(legacy).single;
+    expect(decoded.startDate, DateTime(2026, 6, 21));
+    expect(decoded.endDate, isNull);
   });
 }

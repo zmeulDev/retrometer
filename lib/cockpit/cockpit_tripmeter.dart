@@ -1,0 +1,141 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../state_providers.dart';
+import '../theme/retrometer_theme.dart';
+
+/// Bottom cockpit zone (40%): the trip-meter distance readout flanked by the
+/// two blind-touch ±10 m / ±100 m (long-press) adjust zones.
+class TripmeterBar extends ConsumerWidget {
+  const TripmeterBar({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controller = ref.read(stageControllerProvider.notifier);
+    return ColoredBox(
+      color: RetrometerColors.background,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+        child: Row(
+          children: [
+            Expanded(
+              flex: 30,
+              child: AdjustZone(
+                sign: '−',
+                onTap: () => controller.adjustDistance(-0.01),
+                onLongPress: () => controller.adjustDistance(-0.1),
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Expanded(
+              flex: 40,
+              child: RepaintBoundary(child: DistanceReadout()),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 30,
+              child: AdjustZone(
+                sign: '+',
+                onTap: () => controller.adjustDistance(0.01),
+                onLongPress: () => controller.adjustDistance(0.1),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A blind-touch adjust zone: tap = ±10 m, long-press = ±100 m. The [sign]
+/// is shown large so it's identifiable without looking at the screen.
+class AdjustZone extends StatelessWidget {
+  const AdjustZone({
+    super.key,
+    required this.sign,
+    required this.onTap,
+    required this.onLongPress,
+  });
+
+  final String sign;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      onLongPress: onLongPress,
+      child: Container(
+        decoration: BoxDecoration(
+          color: RetrometerColors.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: RetrometerColors.divider),
+        ),
+        alignment: Alignment.center,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                sign,
+                style: RetrometerTextStyles.adjustSign,
+              ),
+              const SizedBox(height: 2),
+              const Text(
+                '10 m',
+                style: RetrometerTextStyles.adjustAmount,
+              ),
+              const Text(
+                'lung: 100 m',
+                style: RetrometerTextStyles.adjustLong,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The accumulated-trip-distance readout (km), repaint-isolated from the
+/// adjust zones so taps don't repaint the number.
+class DistanceReadout extends ConsumerWidget {
+  const DistanceReadout({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final distance = ref.watch(
+      stageControllerProvider.select((s) => s.telemetry.currentDistance),
+    );
+    return Container(
+      decoration: BoxDecoration(
+        color: RetrometerColors.surfaceElevated,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: RetrometerColors.primary.withValues(alpha: 0.3),
+        ),
+      ),
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              distance.toStringAsFixed(2),
+              style: RetrometerTextStyles.distanceNumber,
+            ),
+            const Text(
+              'km',
+              style: RetrometerTextStyles.distanceUnit,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

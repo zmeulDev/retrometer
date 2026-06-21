@@ -64,7 +64,7 @@ class _FakeGps implements GpsService {
 }
 
 void main() {
-  testWidgets('About screen shows the app version, a guide link, and permissions',
+  testWidgets('About screen shows version and nav links; guide link opens guide',
       (WidgetTester tester) async {
     await _mockPackageInfo(_packageInfo);
 
@@ -78,49 +78,63 @@ void main() {
     expect(find.text('Retrometer'), findsOneWidget);
     expect(find.text('Versiune 1.0.0'), findsOneWidget);
 
-    // Permissions section: three rows for the three declared permissions.
+    // The three nav links on the about screen.
+    expect(find.text('Ghid de utilizare'), findsOneWidget);
+    expect(find.text('Politică de confidențialitate'), findsOneWidget);
     expect(find.text('Permisiuni'), findsOneWidget);
-    expect(find.text('Locație (GPS)'), findsOneWidget);
-    expect(find.text('Vibrație'), findsOneWidget);
-    expect(find.text('Ecran aprins'), findsOneWidget);
-
-    // Location granted (whileInUse) shows an "Acordată" chip.
-    expect(find.text('Acordată · în folosire'), findsOneWidget);
-    // Normal permissions are shown as granted at install time.
-    expect(find.text('Acordată'), findsNWidgets(2));
 
     // Guide link opens the guide screen when tapped.
-    expect(find.text('Ghid de utilizare'), findsOneWidget);
     await tester.tap(find.text('Ghid de utilizare'));
     await tester.pumpAndSettle();
     expect(find.byType(GuideScreen), findsOneWidget);
   });
 
-  testWidgets('About screen reports a denied location permission',
+  testWidgets('Permissions link opens the permissions page with three rows',
       (WidgetTester tester) async {
     await _mockPackageInfo(_packageInfo);
 
+    await tester.pumpWidget(ProviderScope(
+      overrides: [gpsServiceProvider.overrideWithValue(_FakeGps())],
+      child: const MaterialApp(home: AboutScreen()),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Permisiuni'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(PermissionsScreen), findsOneWidget);
+    // Three rows for the three declared permissions.
+    expect(find.text('Locație (GPS)'), findsOneWidget);
+    expect(find.text('Vibrație'), findsOneWidget);
+    expect(find.text('Ecran aprins'), findsOneWidget);
+
+    // Location granted (whileInUse) shows an "Acordată · în folosire" chip.
+    expect(find.text('Acordată · în folosire'), findsOneWidget);
+    // Normal permissions are shown as granted at install time.
+    expect(find.text('Acordată'), findsNWidgets(2));
+  });
+
+  testWidgets('Permissions page reports a denied location permission',
+      (WidgetTester tester) async {
     await tester.pumpWidget(ProviderScope(
       overrides: [
         gpsServiceProvider.overrideWithValue(
             _FakeGps(permission: LocationPermission.denied)),
       ],
-      child: const MaterialApp(home: AboutScreen()),
+      child: const MaterialApp(home: PermissionsScreen()),
     ));
     await tester.pumpAndSettle();
 
     expect(find.text('Refuzată'), findsOneWidget);
   });
 
-  testWidgets('About screen reports a disabled GPS service',
+  testWidgets('Permissions page reports a disabled GPS service',
       (WidgetTester tester) async {
-    await _mockPackageInfo(_packageInfo);
-
     await tester.pumpWidget(ProviderScope(
       overrides: [
         gpsServiceProvider.overrideWithValue(_FakeGps(serviceEnabled: false)),
       ],
-      child: const MaterialApp(home: AboutScreen()),
+      child: const MaterialApp(home: PermissionsScreen()),
     ));
     await tester.pumpAndSettle();
 

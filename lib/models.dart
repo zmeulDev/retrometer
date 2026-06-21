@@ -184,7 +184,11 @@ class Competition with _$Competition {
     required String id,
     @Default('') String name,
     @Default('') String location,
-    DateTime? date,
+    /// First day of the event (optional). `null` = not set.
+    DateTime? startDate,
+    /// Last day of the event (optional). `null` or equal to [startDate] means a
+    /// single-day event. When set, must be on/after [startDate].
+    DateTime? endDate,
     @Default('') String pilot,
     @Default('') String copilot,
     @Default('') String car,
@@ -202,7 +206,8 @@ class Competition with _$Competition {
         'id': id,
         'name': name,
         'location': location,
-        'date': date?.toIso8601String(),
+        'startDate': startDate?.toIso8601String(),
+        'endDate': endDate?.toIso8601String(),
         'pilot': pilot,
         'copilot': copilot,
         'car': car,
@@ -228,7 +233,16 @@ List<Competition> competitionsFromJson(String encoded) {
   final list = jsonDecode(encoded) as List<dynamic>;
   return list.map((e) {
     final json = e as Map<String, dynamic>;
-    final dateRaw = json['date'] as String?;
+    // Backward compat: pre-multi-day versions stored a single `date`. Migrate
+    // it into `startDate` when the new `startDate` key is absent.
+    final startDateRaw = json['startDate'] as String?;
+    final legacyDateRaw = json['date'] as String?;
+    final startParsed = startDateRaw == null
+        ? (legacyDateRaw == null ? null : DateTime.tryParse(legacyDateRaw))
+        : DateTime.tryParse(startDateRaw);
+    final endDateRaw = json['endDate'] as String?;
+    final endParsed =
+        endDateRaw == null ? null : DateTime.tryParse(endDateRaw);
     final stagesRaw = json['stages'];
     final List<PlannedStage> stages;
     if (stagesRaw is String) {
@@ -245,7 +259,8 @@ List<Competition> competitionsFromJson(String encoded) {
       id: json['id'] as String,
       name: json['name'] as String? ?? '',
       location: json['location'] as String? ?? '',
-      date: dateRaw == null ? null : DateTime.tryParse(dateRaw),
+      startDate: startParsed,
+      endDate: endParsed,
       pilot: json['pilot'] as String? ?? '',
       copilot: json['copilot'] as String? ?? '',
       car: json['car'] as String? ?? '',
