@@ -78,7 +78,12 @@ class CompetitionDetailScreen extends ConsumerWidget {
             }
             final competition = competitions[i];
             final sorted = [...competition.stages]
-              ..sort((a, b) => a.startTime.compareTo(b.startTime));
+              ..sort((a, b) {
+                final c = (a.startTime ?? DateTime(9999, 12, 31))
+                    .compareTo(b.startTime ?? DateTime(9999, 12, 31));
+                if (c != 0) return c;
+                return a.id.compareTo(b.id); // stable tiebreaker
+              });
             return Column(
               children: [
                 _CompetitionHeader(competition: competition),
@@ -333,9 +338,11 @@ class _StageTile extends ConsumerWidget {
                   const SizedBox(height: 4),
                   InfoLine(
                     icon: Icons.location_on,
-                    text: '${stage.latitude.toStringAsFixed(5)}, '
-                        '${stage.longitude.toStringAsFixed(5)} '
-                        '(±${stage.geofenceRadiusM.toStringAsFixed(0)} m)',
+                    text: (stage.latitude != null && stage.longitude != null)
+                        ? '${stage.latitude!.toStringAsFixed(5)}, '
+                            '${stage.longitude!.toStringAsFixed(5)} '
+                            '(±${stage.geofenceRadiusM.toStringAsFixed(0)} m)'
+                        : 'fără locație',
                   ),
                   const SizedBox(height: 4),
                   Text(

@@ -816,11 +816,15 @@ abstract class _RallyState implements RallyState {
 mixin _$PlannedStage {
   String get id => throw _privateConstructorUsedError;
   String get name => throw _privateConstructorUsedError;
-  DateTime get startTime => throw _privateConstructorUsedError;
+
+  /// Scheduled start (wall clock). `null` = no time trigger (location-only).
+  DateTime? get startTime => throw _privateConstructorUsedError;
   double get targetAvgSpeed => throw _privateConstructorUsedError;
   double get maxSpeedLimit => throw _privateConstructorUsedError;
-  double get latitude => throw _privateConstructorUsedError;
-  double get longitude => throw _privateConstructorUsedError;
+
+  /// Start geofence centre. `null` = no location trigger (time-only).
+  double? get latitude => throw _privateConstructorUsedError;
+  double? get longitude => throw _privateConstructorUsedError;
   double get geofenceRadiusM => throw _privateConstructorUsedError;
   bool get autoStart => throw _privateConstructorUsedError;
   bool get started => throw _privateConstructorUsedError;
@@ -854,11 +858,11 @@ abstract class $PlannedStageCopyWith<$Res> {
   $Res call({
     String id,
     String name,
-    DateTime startTime,
+    DateTime? startTime,
     double targetAvgSpeed,
     double maxSpeedLimit,
-    double latitude,
-    double longitude,
+    double? latitude,
+    double? longitude,
     double geofenceRadiusM,
     bool autoStart,
     bool started,
@@ -888,11 +892,11 @@ class _$PlannedStageCopyWithImpl<$Res, $Val extends PlannedStage>
   $Res call({
     Object? id = null,
     Object? name = null,
-    Object? startTime = null,
+    Object? startTime = freezed,
     Object? targetAvgSpeed = null,
     Object? maxSpeedLimit = null,
-    Object? latitude = null,
-    Object? longitude = null,
+    Object? latitude = freezed,
+    Object? longitude = freezed,
     Object? geofenceRadiusM = null,
     Object? autoStart = null,
     Object? started = null,
@@ -913,10 +917,10 @@ class _$PlannedStageCopyWithImpl<$Res, $Val extends PlannedStage>
                 ? _value.name
                 : name // ignore: cast_nullable_to_non_nullable
                       as String,
-            startTime: null == startTime
+            startTime: freezed == startTime
                 ? _value.startTime
                 : startTime // ignore: cast_nullable_to_non_nullable
-                      as DateTime,
+                      as DateTime?,
             targetAvgSpeed: null == targetAvgSpeed
                 ? _value.targetAvgSpeed
                 : targetAvgSpeed // ignore: cast_nullable_to_non_nullable
@@ -925,14 +929,14 @@ class _$PlannedStageCopyWithImpl<$Res, $Val extends PlannedStage>
                 ? _value.maxSpeedLimit
                 : maxSpeedLimit // ignore: cast_nullable_to_non_nullable
                       as double,
-            latitude: null == latitude
+            latitude: freezed == latitude
                 ? _value.latitude
                 : latitude // ignore: cast_nullable_to_non_nullable
-                      as double,
-            longitude: null == longitude
+                      as double?,
+            longitude: freezed == longitude
                 ? _value.longitude
                 : longitude // ignore: cast_nullable_to_non_nullable
-                      as double,
+                      as double?,
             geofenceRadiusM: null == geofenceRadiusM
                 ? _value.geofenceRadiusM
                 : geofenceRadiusM // ignore: cast_nullable_to_non_nullable
@@ -987,11 +991,11 @@ abstract class _$$PlannedStageImplCopyWith<$Res>
   $Res call({
     String id,
     String name,
-    DateTime startTime,
+    DateTime? startTime,
     double targetAvgSpeed,
     double maxSpeedLimit,
-    double latitude,
-    double longitude,
+    double? latitude,
+    double? longitude,
     double geofenceRadiusM,
     bool autoStart,
     bool started,
@@ -1020,11 +1024,11 @@ class __$$PlannedStageImplCopyWithImpl<$Res>
   $Res call({
     Object? id = null,
     Object? name = null,
-    Object? startTime = null,
+    Object? startTime = freezed,
     Object? targetAvgSpeed = null,
     Object? maxSpeedLimit = null,
-    Object? latitude = null,
-    Object? longitude = null,
+    Object? latitude = freezed,
+    Object? longitude = freezed,
     Object? geofenceRadiusM = null,
     Object? autoStart = null,
     Object? started = null,
@@ -1045,10 +1049,10 @@ class __$$PlannedStageImplCopyWithImpl<$Res>
             ? _value.name
             : name // ignore: cast_nullable_to_non_nullable
                   as String,
-        startTime: null == startTime
+        startTime: freezed == startTime
             ? _value.startTime
             : startTime // ignore: cast_nullable_to_non_nullable
-                  as DateTime,
+                  as DateTime?,
         targetAvgSpeed: null == targetAvgSpeed
             ? _value.targetAvgSpeed
             : targetAvgSpeed // ignore: cast_nullable_to_non_nullable
@@ -1057,14 +1061,14 @@ class __$$PlannedStageImplCopyWithImpl<$Res>
             ? _value.maxSpeedLimit
             : maxSpeedLimit // ignore: cast_nullable_to_non_nullable
                   as double,
-        latitude: null == latitude
+        latitude: freezed == latitude
             ? _value.latitude
             : latitude // ignore: cast_nullable_to_non_nullable
-                  as double,
-        longitude: null == longitude
+                  as double?,
+        longitude: freezed == longitude
             ? _value.longitude
             : longitude // ignore: cast_nullable_to_non_nullable
-                  as double,
+                  as double?,
         geofenceRadiusM: null == geofenceRadiusM
             ? _value.geofenceRadiusM
             : geofenceRadiusM // ignore: cast_nullable_to_non_nullable
@@ -1112,11 +1116,11 @@ class _$PlannedStageImpl extends _PlannedStage {
   const _$PlannedStageImpl({
     required this.id,
     required this.name,
-    required this.startTime,
+    this.startTime,
     this.targetAvgSpeed = 40.0,
     this.maxSpeedLimit = 60.0,
-    required this.latitude,
-    required this.longitude,
+    this.latitude,
+    this.longitude,
     this.geofenceRadiusM = 200.0,
     this.autoStart = true,
     this.started = false,
@@ -1132,18 +1136,22 @@ class _$PlannedStageImpl extends _PlannedStage {
   final String id;
   @override
   final String name;
+
+  /// Scheduled start (wall clock). `null` = no time trigger (location-only).
   @override
-  final DateTime startTime;
+  final DateTime? startTime;
   @override
   @JsonKey()
   final double targetAvgSpeed;
   @override
   @JsonKey()
   final double maxSpeedLimit;
+
+  /// Start geofence centre. `null` = no location trigger (time-only).
   @override
-  final double latitude;
+  final double? latitude;
   @override
-  final double longitude;
+  final double? longitude;
   @override
   @JsonKey()
   final double geofenceRadiusM;
@@ -1251,11 +1259,11 @@ abstract class _PlannedStage extends PlannedStage {
   const factory _PlannedStage({
     required final String id,
     required final String name,
-    required final DateTime startTime,
+    final DateTime? startTime,
     final double targetAvgSpeed,
     final double maxSpeedLimit,
-    required final double latitude,
-    required final double longitude,
+    final double? latitude,
+    final double? longitude,
     final double geofenceRadiusM,
     final bool autoStart,
     final bool started,
@@ -1272,16 +1280,20 @@ abstract class _PlannedStage extends PlannedStage {
   String get id;
   @override
   String get name;
+
+  /// Scheduled start (wall clock). `null` = no time trigger (location-only).
   @override
-  DateTime get startTime;
+  DateTime? get startTime;
   @override
   double get targetAvgSpeed;
   @override
   double get maxSpeedLimit;
+
+  /// Start geofence centre. `null` = no location trigger (time-only).
   @override
-  double get latitude;
+  double? get latitude;
   @override
-  double get longitude;
+  double? get longitude;
   @override
   double get geofenceRadiusM;
   @override

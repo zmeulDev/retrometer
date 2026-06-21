@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'cockpit/auto_start_prompt_listener.dart';
 import 'cockpit/cockpit_delta_indicator.dart';
 import 'cockpit/cockpit_top_bar.dart';
 import 'cockpit/cockpit_tripmeter.dart';
@@ -30,11 +31,22 @@ class _CockpitViewState extends State<CockpitView> {
   Widget build(BuildContext context) {
     return const Scaffold(
       body: SafeArea(
-        child: Column(
+        // Stack so the prompt listener (a SizedBox.shrink overlay) can host a
+        // BuildContext for the auto-start dialog without taking layout space.
+        // StackFit.expand gives the Column tight constraints so its Expanded
+        // children can flex (a default Stack passes loose constraints, which
+        // breaks the flex layout).
+        child: Stack(
+          fit: StackFit.expand,
           children: [
-            Expanded(flex: 20, child: CockpitTopBar()),
-            Expanded(flex: 40, child: DeltaIndicator()),
-            Expanded(flex: 20, child: TripmeterBar()),
+            Column(
+              children: [
+                Expanded(flex: 20, child: CockpitTopBar()),
+                Expanded(flex: 40, child: DeltaIndicator()),
+                Expanded(flex: 20, child: TripmeterBar()),
+              ],
+            ),
+            AutoStartPromptListener(),
           ],
         ),
       ),

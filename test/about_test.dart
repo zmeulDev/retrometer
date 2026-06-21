@@ -53,6 +53,14 @@ class _FakeGps implements GpsService {
   }) =>
       const Stream<Position>.empty();
 
+  // Auto-start monitor paths aren't exercised here.
+  @override
+  Future<Position?> getLastKnownPosition() async => null;
+
+  @override
+  Future<Position> getCurrentPosition({Duration? timeLimit}) =>
+      throw UnimplementedError();
+
   @override
   double distanceBetween({
     required double startLatitude,

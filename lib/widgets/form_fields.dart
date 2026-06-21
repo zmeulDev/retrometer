@@ -23,8 +23,9 @@ String _formatDate(DateTime dt) {
   return '${dt.year}-${two(dt.month)}-${two(dt.day)}';
 }
 
-/// `yyyy-MM-dd HH:mm`.
-String formatDateTime(DateTime dt) {
+/// `yyyy-MM-dd HH:mm`, or `—` when [dt] is null.
+String formatDateTime(DateTime? dt) {
+  if (dt == null) return '—';
   String two(int n) => n.toString().padLeft(2, '0');
   return '${dt.year}-${two(dt.month)}-${two(dt.day)} '
       '${two(dt.hour)}:${two(dt.minute)}';
@@ -278,7 +279,8 @@ class _CoordFieldState extends State<CoordField> {
 
 /// A date + time picker row showing the current [value] and a button that opens
 /// a date picker then a time picker. Reports the combined [DateTime] via
-/// [onChanged].
+/// [onChanged]. A clear button lets the crew unset the start (for a
+/// location-only stage). [value]/[onChanged] are nullable.
 class DateTimeField extends StatelessWidget {
   const DateTimeField({
     super.key,
@@ -286,11 +288,12 @@ class DateTimeField extends StatelessWidget {
     required this.onChanged,
   });
 
-  final DateTime value;
-  final ValueChanged<DateTime> onChanged;
+  final DateTime? value;
+  final ValueChanged<DateTime?> onChanged;
 
   @override
   Widget build(BuildContext context) {
+    final hasValue = value != null;
     return Row(
       children: [
         Expanded(
@@ -299,26 +302,36 @@ class DateTimeField extends StatelessWidget {
         ),
         TextButton(
           onPressed: () async {
+            final now = DateTime.now();
             final d = await showDatePicker(
               context: context,
-              initialDate: value,
-              firstDate: DateTime.now().subtract(const Duration(days: 1)),
-              lastDate: DateTime.now().add(const Duration(days: 365)),
+              initialDate: value ?? now,
+              firstDate: now.subtract(const Duration(days: 1)),
+              lastDate: now.add(const Duration(days: 365)),
               builder: pickerTheme,
             );
             if (d == null) return;
             if (!context.mounted) return;
             final t = await showTimePicker(
               context: context,
-              initialTime: TimeOfDay.fromDateTime(value),
+              initialTime: TimeOfDay.fromDateTime(value ?? now),
               builder: pickerTheme,
             );
             if (t == null) return;
             onChanged(DateTime(d.year, d.month, d.day, t.hour, t.minute));
           },
-          child: const Text('Alege data/ora',
-              style: TextStyle(color: RetrometerColors.primary)),
+          child: Text(
+            hasValue ? 'Schimbă' : 'Alege data/ora',
+            style: const TextStyle(color: RetrometerColors.primary),
+          ),
         ),
+        if (hasValue)
+          IconButton(
+            icon: const Icon(Icons.clear,
+                color: RetrometerColors.textTertiary, size: 18),
+            tooltip: 'Șterge ora de start',
+            onPressed: () => onChanged(null),
+          ),
       ],
     );
   }

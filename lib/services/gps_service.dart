@@ -25,6 +25,16 @@ abstract class GpsService {
     int distanceFilter = 0,
   });
 
+  /// The last known position stored on the device, or `null` if none. This is
+  /// instant (no cold-start) and is good enough for a hundreds-of-metres
+  /// geofence check — the auto-start monitor uses it as its fast path.
+  Future<Position?> getLastKnownPosition();
+
+  /// A fresh one-shot position. Throws `TimeoutException` if no fix arrives
+  /// within [timeLimit]. Used as a fallback when [getLastKnownPosition] is
+  /// missing or stale.
+  Future<Position> getCurrentPosition({Duration? timeLimit});
+
   /// Great-circle distance in **metres** between two coordinates.
   double distanceBetween({
     required double startLatitude,
@@ -58,6 +68,18 @@ class GeolocatorGpsService implements GpsService {
         locationSettings: LocationSettings(
           accuracy: accuracy,
           distanceFilter: distanceFilter,
+        ),
+      );
+
+  @override
+  Future<Position?> getLastKnownPosition() => Geolocator.getLastKnownPosition();
+
+  @override
+  Future<Position> getCurrentPosition({Duration? timeLimit}) =>
+      Geolocator.getCurrentPosition(
+        locationSettings: LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: timeLimit,
         ),
       );
 

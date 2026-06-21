@@ -67,11 +67,13 @@ class StageDraft {
   });
 
   String name;
-  DateTime startTime;
+  /// Scheduled start. `null` = no time trigger (location-only stage).
+  DateTime? startTime;
   double targetAvgSpeed;
   double maxSpeedLimit;
-  double latitude;
-  double longitude;
+  /// Start geofence centre. `null` = no location trigger (time-only stage).
+  double? latitude;
+  double? longitude;
   double geofenceRadiusM;
   bool autoStart;
   double? endLatitude;
@@ -110,12 +112,18 @@ class _StageEditorState extends State<StageEditor> {
     final e = widget.existing;
     _draft = StageDraft(
       name: e?.name ?? '',
+      // Only default the start time when creating a new stage; when editing,
+      // round-trip null (a location-only stage stays location-only).
       startTime: e?.startTime ??
-          _roundToMinute(DateTime.now().add(const Duration(minutes: 30))),
+          (e == null
+              ? _roundToMinute(DateTime.now().add(const Duration(minutes: 30)))
+              : null),
       targetAvgSpeed: e?.targetAvgSpeed ?? 40.0,
       maxSpeedLimit: e?.maxSpeedLimit ?? 60.0,
-      latitude: e?.latitude ?? 0.0,
-      longitude: e?.longitude ?? 0.0,
+      // Round-trip null coords (a time-only stage stays time-only); don't
+      // silently default to 0,0.
+      latitude: e?.latitude,
+      longitude: e?.longitude,
       geofenceRadiusM: e?.geofenceRadiusM ?? 200.0,
       autoStart: e?.autoStart ?? true,
       endLatitude: e?.endLatitude,
@@ -126,8 +134,8 @@ class _StageEditorState extends State<StageEditor> {
       allocatedTimeSeconds: e?.allocatedTimeSeconds ?? 0,
     );
     _nameCtrl = TextEditingController(text: _draft.name);
-    _latCtrl = TextEditingController(text: _fmtCoord(_draft.latitude));
-    _lngCtrl = TextEditingController(text: _fmtCoord(_draft.longitude));
+    _latCtrl = TextEditingController(text: _fmtCoordNullable(_draft.latitude));
+    _lngCtrl = TextEditingController(text: _fmtCoordNullable(_draft.longitude));
     _radiusCtrl = TextEditingController(
         text: _draft.geofenceRadiusM.toStringAsFixed(0));
     _endLatCtrl = TextEditingController(
@@ -388,7 +396,7 @@ class _StageEditorState extends State<StageEditor> {
             const SizedBox(height: 8),
             SwitchListTile(
               dense: true,
-              title: const Text('Auto-start la ora + locație',
+              title: const Text('Auto-start (timp SAU locație)',
                   style: TextStyle(color: RetrometerColors.textPrimary)),
               value: _draft.autoStart,
               onChanged: (v) => setState(() => _draft.autoStart = v),
@@ -412,7 +420,12 @@ class _StageEditorState extends State<StageEditor> {
       );
       return false;
     }
-    // Empty end-coord fields mean "no finish set" (nullable).
+    // Empty coord fields mean "no location set" (nullable) — same as the finish
+    // coords below. This lets the crew build a time-only stage by leaving the
+    // start lat/lng blank.
+    final lat = double.tryParse(_latCtrl.text.trim());
+    final lng = double.tryParse(_lngCtrl.text.trim());
+    final startCoords = (lat == null || lng == null) ? null : (lat, lng);
     final endLat = double.tryParse(_endLatCtrl.text.trim());
     final endLng = double.tryParse(_endLngCtrl.text.trim());
     final draft = StageDraft(
@@ -420,8 +433,8 @@ class _StageEditorState extends State<StageEditor> {
       startTime: _draft.startTime,
       targetAvgSpeed: _draft.targetAvgSpeed,
       maxSpeedLimit: _draft.maxSpeedLimit,
-      latitude: _draft.latitude,
-      longitude: _draft.longitude,
+      latitude: startCoords?.$1,
+      longitude: startCoords?.$2,
       geofenceRadiusM: _draft.geofenceRadiusM,
       autoStart: _draft.autoStart,
       endLatitude: (endLat == null || endLng == null) ? null : endLat,
@@ -431,6 +444,17 @@ class _StageEditorState extends State<StageEditor> {
       totalDistanceKm: _draft.totalDistanceKm,
       allocatedTimeSeconds: _draft.allocatedTimeSeconds,
     );
+    // Soft warning: auto-start can't fire without at least one trigger source.
+    if (draft.autoStart &&
+        draft.startTime == null &&
+        (draft.latitude == null || draft.longitude == null)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Acest stage nu se poate auto-porni fără timp sau locație.'),
+        ),
+      );
+    }
     Navigator.of(context).pop(draft);
     return true;
   }
@@ -446,3 +470,5 @@ DateTime _roundToMinute(DateTime dt) =>
     DateTime(dt.year, dt.month, dt.day, dt.hour, dt.minute);
 
 String _fmtCoord(double v) => v.toStringAsFixed(5);
+
+String _fmtCoordNullable(double? v) => v == null ? '' : _fmtCoord(v);

@@ -78,11 +78,14 @@ class RallyState with _$RallyState {
 /// A planned stage in the day's schedule. Persisted across restarts so the
 /// crew can plan the morning and drive later.
 ///
-/// `startTime` is the scheduled start (wall clock). Auto-start fires when the
-/// current time is at/after [startTime] (within a grace window) **and** the
-/// device is within [geofenceRadiusM] metres of ([latitude], [longitude]).
-/// `started` is set once auto-start (or manual start of this stage) has fired,
-/// to avoid re-triggering.
+/// Auto-start triggers (after a confirmation prompt) when **either** condition
+/// is met — time or location — and either can be missing:
+/// - [startTime] is the scheduled start (wall clock). `null` = no time trigger.
+/// - ([latitude], [longitude]) + [geofenceRadiusM] is the start geofence. Coords
+///   `null` = no location trigger.
+/// So a stage may be time-only, location-only, both, or (if `autoStart` is on
+/// but neither is set) unable to auto-start at all. `started` is set once
+/// auto-start (or manual start of this stage) has fired, to avoid re-triggering.
 @freezed
 class PlannedStage with _$PlannedStage {
   const PlannedStage._();
@@ -90,11 +93,13 @@ class PlannedStage with _$PlannedStage {
   const factory PlannedStage({
     required String id,
     required String name,
-    required DateTime startTime,
+    /// Scheduled start (wall clock). `null` = no time trigger (location-only).
+    DateTime? startTime,
     @Default(40.0) double targetAvgSpeed,
     @Default(60.0) double maxSpeedLimit,
-    required double latitude,
-    required double longitude,
+    /// Start geofence centre. `null` = no location trigger (time-only).
+    double? latitude,
+    double? longitude,
     @Default(200.0) double geofenceRadiusM,
     @Default(true) bool autoStart,
     @Default(false) bool started,
@@ -112,7 +117,7 @@ class PlannedStage with _$PlannedStage {
   Map<String, dynamic> toJson() => {
         'id': id,
         'name': name,
-        'startTime': startTime.toIso8601String(),
+        'startTime': startTime?.toIso8601String(),
         'targetAvgSpeed': targetAvgSpeed,
         'maxSpeedLimit': maxSpeedLimit,
         'latitude': latitude,
@@ -132,14 +137,20 @@ class PlannedStage with _$PlannedStage {
 /// Reconstruct a single [PlannedStage] from its JSON object, with backward-
 /// compatible defaults for fields added later (so older persisted schedules
 /// load without error).
+///
+/// `startTime`/`latitude`/`longitude` are nullable: older payloads (and the
+/// new time-only/location-only stages) may omit them. This is a one-way
+/// migration — an older app version that still does `DateTime.parse(... as
+/// String)` will throw on a null/missing `startTime`, so don't downgrade after
+/// saving a time-only or location-only stage.
 PlannedStage plannedStageFromJson(Map<String, dynamic> json) => PlannedStage(
       id: json['id'] as String,
       name: json['name'] as String,
-      startTime: DateTime.parse(json['startTime'] as String),
+      startTime: DateTime.tryParse(json['startTime'] as String? ?? ''),
       targetAvgSpeed: (json['targetAvgSpeed'] as num).toDouble(),
       maxSpeedLimit: (json['maxSpeedLimit'] as num).toDouble(),
-      latitude: (json['latitude'] as num).toDouble(),
-      longitude: (json['longitude'] as num).toDouble(),
+      latitude: (json['latitude'] as num?)?.toDouble(),
+      longitude: (json['longitude'] as num?)?.toDouble(),
       geofenceRadiusM: (json['geofenceRadiusM'] as num).toDouble(),
       autoStart: json['autoStart'] as bool? ?? true,
       started: json['started'] as bool? ?? false,
