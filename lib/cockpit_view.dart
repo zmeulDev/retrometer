@@ -7,6 +7,7 @@ import 'competition_view.dart';
 import 'guide_view.dart';
 import 'models.dart';
 import 'state_providers.dart';
+import 'theme/retrometer_theme.dart';
 
 /// Main cockpit screen: a 3-zone column (info / Δ indicator / trip-meter +
 /// blind-touch gestures). Each zone is an independent `Consumer` that watches
@@ -31,7 +32,6 @@ class _CockpitViewState extends State<CockpitView> {
   @override
   Widget build(BuildContext context) {
     return const Scaffold(
-      backgroundColor: Colors.black,
       body: SafeArea(
         child: Column(
           children: [
@@ -48,6 +48,25 @@ class _CockpitViewState extends State<CockpitView> {
 // ---------------------------------------------------------------------------
 // Top zone (15%): stage name + elapsed + controls.
 // ---------------------------------------------------------------------------
+
+/// Rounded surface panel that holds the top-bar content, lifted slightly off
+/// the scaffold background so the bar reads as a header card.
+Widget _topBarSurface(double padH, Widget child) {
+  return Padding(
+    padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
+    child: DecoratedBox(
+      decoration: BoxDecoration(
+        color: RetrometerColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: RetrometerColors.divider),
+      ),
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: padH + 4, vertical: 6),
+        child: child,
+      ),
+    ),
+  );
+}
 
 class _TopInfoBar extends ConsumerWidget {
   const _TopInfoBar();
@@ -78,17 +97,10 @@ class _TopInfoBar extends ConsumerWidget {
           final twoRows = compact && c.maxHeight > 100;
           final padH = compact ? 8.0 : 12.0;
 
-          final localityStyle = TextStyle(
-            color: Colors.white,
-            fontSize: compact ? 15 : 18,
-            fontWeight: FontWeight.bold,
-          );
-          final elapsedStyle = TextStyle(
-            color: Colors.white,
-            fontSize: compact ? 15 : 18,
-            fontWeight: FontWeight.bold,
-            fontFeatures: const [FontFeature.tabularFigures()],
-          );
+          final localityStyle =
+              RetrometerTextStyles.topBarText(compact: compact);
+          final elapsedStyle =
+              RetrometerTextStyles.topBarText(compact: compact);
 
           Widget localityBlock = Expanded(
             child: Column(
@@ -98,7 +110,8 @@ class _TopInfoBar extends ConsumerWidget {
                 Row(
                   children: [
                     Icon(Icons.location_on,
-                        color: Colors.greenAccent, size: compact ? 16 : 18),
+                        color: RetrometerColors.primary,
+                        size: compact ? 16 : 18),
                     const SizedBox(width: 6),
                     Flexible(
                       child: Text(
@@ -118,7 +131,7 @@ class _TopInfoBar extends ConsumerWidget {
                     child: Row(
                       children: [
                         const Icon(Icons.emoji_events,
-                            color: Colors.greenAccent, size: 13),
+                            color: RetrometerColors.primary, size: 13),
                         const SizedBox(width: 4),
                         Flexible(
                           child: Text(
@@ -130,10 +143,7 @@ class _TopInfoBar extends ConsumerWidget {
                             ].join(' · '),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.greenAccent,
-                              fontSize: 13,
-                            ),
+                            style: RetrometerTextStyles.competitionRow,
                           ),
                         ),
                       ],
@@ -146,7 +156,7 @@ class _TopInfoBar extends ConsumerWidget {
           final elapsedWidget = Text(_formatElapsed(elapsed), style: elapsedStyle);
           final competitionsBtn = IconButton(
             icon: Icon(Icons.event_note,
-                color: Colors.greenAccent, size: compact ? 18 : 20),
+                color: RetrometerColors.primary, size: compact ? 18 : 20),
             tooltip: 'Competiții',
             constraints: BoxConstraints(
                 minHeight: compact ? 30 : 32, minWidth: compact ? 30 : 32),
@@ -159,7 +169,8 @@ class _TopInfoBar extends ConsumerWidget {
           );
           final helpBtn = IconButton(
             icon: Icon(Icons.help_outline,
-                color: Colors.white70, size: compact ? 18 : 20),
+                color: RetrometerColors.textSecondary,
+                size: compact ? 18 : 20),
             tooltip: 'Cum se folosește',
             constraints: BoxConstraints(
                 minHeight: compact ? 30 : 32, minWidth: compact ? 30 : 32),
@@ -172,9 +183,9 @@ class _TopInfoBar extends ConsumerWidget {
           );
 
           if (twoRows) {
-            return Padding(
-              padding: EdgeInsets.symmetric(horizontal: padH, vertical: 2),
-              child: Column(
+            return _topBarSurface(
+              padH,
+              Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Row(
@@ -197,9 +208,9 @@ class _TopInfoBar extends ConsumerWidget {
             );
           }
 
-          return Padding(
-            padding: EdgeInsets.symmetric(horizontal: padH, vertical: 4),
-            child: Row(
+          return _topBarSurface(
+            padH,
+            Row(
               children: [
                 localityBlock,
                 SizedBox(width: compact ? 6 : 10),
@@ -233,7 +244,8 @@ class _StageControls extends ConsumerWidget {
       children: [
         IconButton(
           icon: Icon(Icons.settings,
-              color: Colors.white70, size: compact ? 18 : 20),
+              color: RetrometerColors.textSecondary,
+              size: compact ? 18 : 20),
           tooltip: 'Configurare stage',
           constraints: BoxConstraints(
               minHeight: compact ? 30 : 32, minWidth: compact ? 30 : 32),
@@ -246,7 +258,7 @@ class _StageControls extends ConsumerWidget {
           _ControlButton(
             icon: Icons.stop,
             label: 'STOP',
-            color: Colors.red,
+            color: RetrometerColors.stopFill,
             onTap: ref.read(stageControllerProvider.notifier).stopStage,
             compact: compact,
           )
@@ -254,7 +266,7 @@ class _StageControls extends ConsumerWidget {
           _ControlButton(
             icon: Icons.play_arrow,
             label: 'START',
-            color: Colors.green,
+            color: RetrometerColors.startFill,
             onTap: ref.read(stageControllerProvider.notifier).startStage,
             compact: compact,
           ),
@@ -262,7 +274,8 @@ class _StageControls extends ConsumerWidget {
         _ControlButton(
           icon: Icons.refresh,
           label: 'RESET',
-          color: Colors.white24,
+          color: RetrometerColors.resetFill,
+          foreground: RetrometerColors.textPrimary,
           onTap: ref.read(stageControllerProvider.notifier).resetStage,
           compact: compact,
         ),
@@ -278,6 +291,7 @@ class _ControlButton extends StatelessWidget {
     required this.color,
     required this.onTap,
     this.compact = false,
+    this.foreground,
   });
 
   final IconData icon;
@@ -285,34 +299,35 @@ class _ControlButton extends StatelessWidget {
   final Color color;
   final VoidCallback onTap;
   final bool compact;
+  // Defaults to black (for the bright START/STOP fills); RESET passes a light
+  // color since its fill is a dark surface.
+  final Color? foreground;
 
   @override
   Widget build(BuildContext context) {
+    final fg = foreground ?? RetrometerColors.onActionFill;
     // Compact (narrow single-row): icon-only, so the whole top bar fits without
     // overflow on a phone in a short/split-view window.
     return Material(
       color: color,
-      borderRadius: BorderRadius.circular(compact ? 6 : 8),
+      borderRadius: BorderRadius.circular(compact ? 10 : 12),
       child: InkWell(
-        borderRadius: BorderRadius.circular(compact ? 6 : 8),
+        borderRadius: BorderRadius.circular(compact ? 10 : 12),
         onTap: onTap,
         child: Padding(
           padding: EdgeInsets.symmetric(
               horizontal: compact ? 8 : 10, vertical: 6),
           child: compact
-              ? Icon(icon, color: Colors.black, size: 18)
+              ? Icon(icon, color: fg, size: 18)
               : Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(icon, color: Colors.black, size: 16),
+                    Icon(icon, color: fg, size: 16),
                     const SizedBox(width: 4),
                     Text(
                       label,
-                      style: const TextStyle(
-                        color: Colors.black,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
+                      style: RetrometerTextStyles.controlLabel
+                          .copyWith(color: fg),
                     ),
                   ],
                 ),
@@ -350,70 +365,70 @@ class _DeltaIndicator extends ConsumerWidget {
     final String label;
     switch (band) {
       case DeltaBand.onTime:
-        bgColor = const Color(0xFF1B5E20);
-        fgColor = Colors.greenAccent;
+        bgColor = RetrometerColors.onTimeBg;
+        fgColor = RetrometerColors.onTimeFg;
         label = 'LA TIMP';
       case DeltaBand.advance: // ahead → red
-        bgColor = const Color(0xFFB71C1C);
-        fgColor = Colors.redAccent;
+        bgColor = RetrometerColors.advanceBg;
+        fgColor = RetrometerColors.advanceFg;
         label = 'AVANS';
       case DeltaBand.delay: // late → yellow
-        bgColor = const Color(0xFFF57F17);
-        fgColor = Colors.yellowAccent;
+        bgColor = RetrometerColors.delayBg;
+        fgColor = RetrometerColors.delayFg;
         label = 'ÎNTÂRZIERE';
     }
 
     return RepaintBoundary(
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            color: bgColor,
-            alignment: Alignment.center,
-            padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    label,
-                    style: TextStyle(
-                      color: fgColor,
-                      fontSize: 44,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 4,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              decoration: BoxDecoration(
+                color: bgColor,
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(
+                  color: fgColor.withValues(alpha: 0.25),
+                  width: 1.5,
+                ),
+              ),
+              alignment: Alignment.center,
+              padding:
+                  const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      label,
+                      style: RetrometerTextStyles.bandLabel(fgColor),
                     ),
-                  ),
-                  Text(
-                    _formatDelta(delta),
-                    style: TextStyle(
-                      color: fgColor,
-                      fontSize: 180,
-                      fontWeight: FontWeight.bold,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                      height: 1,
+                    Text(
+                      _formatDelta(delta),
+                      style: RetrometerTextStyles.deltaNumberColored(fgColor),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '$name   ·   țintă ${_fmtSpeed(target)} / '
-                    'viteza ${speed.toStringAsFixed(0)} km/h',
-                    style: const TextStyle(color: Colors.white70, fontSize: 22),
-                  ),
-                ],
+                    const SizedBox(height: 4),
+                    Text(
+                      '$name   ·   țintă ${_fmtSpeed(target)} / '
+                      'viteza ${speed.toStringAsFixed(0)} km/h',
+                      style: RetrometerTextStyles.deltaSubtitle,
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          if (overSpeed)
-            const Positioned(
-              top: 8,
-              left: 0,
-              right: 0,
-              child: _OverSpeedAlert(),
-            ),
-        ],
+            if (overSpeed)
+              const Positioned(
+                top: 10,
+                left: 10,
+                right: 10,
+                child: _OverSpeedAlert(),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -450,16 +465,16 @@ class _OverSpeedAlertState extends State<_OverSpeedAlert>
     return FadeTransition(
       opacity: _ctrl,
       child: Container(
-        color: Colors.black54,
-        padding: const EdgeInsets.symmetric(vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.red, width: 1),
+        ),
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 14),
         alignment: Alignment.center,
         child: const Text(
           '⚠ OVER SPEED',
-          style: TextStyle(
-            color: Colors.red,
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-          ),
+          style: RetrometerTextStyles.overSpeed,
         ),
       ),
     );
@@ -477,30 +492,35 @@ class _TripmeterBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final controller = ref.read(stageControllerProvider.notifier);
     return ColoredBox(
-      color: Colors.black,
-      child: Row(
-        children: [
-          Expanded(
-            flex: 30,
-            child: _AdjustZone(
-              sign: '−',
-              onTap: () => controller.adjustDistance(-0.01),
-              onLongPress: () => controller.adjustDistance(-0.1),
+      color: RetrometerColors.background,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+        child: Row(
+          children: [
+            Expanded(
+              flex: 30,
+              child: _AdjustZone(
+                sign: '−',
+                onTap: () => controller.adjustDistance(-0.01),
+                onLongPress: () => controller.adjustDistance(-0.1),
+              ),
             ),
-          ),
-          const Expanded(
-            flex: 40,
-            child: RepaintBoundary(child: _DistanceReadout()),
-          ),
-          Expanded(
-            flex: 30,
-            child: _AdjustZone(
-              sign: '+',
-              onTap: () => controller.adjustDistance(0.01),
-              onLongPress: () => controller.adjustDistance(0.1),
+            const SizedBox(width: 8),
+            const Expanded(
+              flex: 40,
+              child: RepaintBoundary(child: _DistanceReadout()),
             ),
-          ),
-        ],
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 30,
+              child: _AdjustZone(
+                sign: '+',
+                onTap: () => controller.adjustDistance(0.01),
+                onLongPress: () => controller.adjustDistance(0.1),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -525,15 +545,9 @@ class _AdjustZone extends StatelessWidget {
       onLongPress: onLongPress,
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFF1A1A1A),
-          border: Border(
-            left: sign == '+'
-                ? const BorderSide(color: Colors.white12, width: 1)
-                : BorderSide.none,
-            right: sign == '−'
-                ? const BorderSide(color: Colors.white12, width: 1)
-                : BorderSide.none,
-          ),
+          color: RetrometerColors.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: RetrometerColors.divider),
         ),
         alignment: Alignment.center,
         child: FittedBox(
@@ -543,21 +557,16 @@ class _AdjustZone extends StatelessWidget {
             children: [
               Text(
                 sign,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 72,
-                  fontWeight: FontWeight.bold,
-                  height: 1,
-                ),
+                style: RetrometerTextStyles.adjustSign,
               ),
               const SizedBox(height: 2),
               const Text(
                 '10 m',
-                style: TextStyle(color: Colors.white70, fontSize: 20),
+                style: RetrometerTextStyles.adjustAmount,
               ),
               const Text(
                 'lung: 100 m',
-                style: TextStyle(color: Colors.white38, fontSize: 13),
+                style: RetrometerTextStyles.adjustLong,
               ),
             ],
           ),
@@ -576,7 +585,13 @@ class _DistanceReadout extends ConsumerWidget {
       stageControllerProvider.select((s) => s.telemetry.currentDistance),
     );
     return Container(
-      color: Colors.black,
+      decoration: BoxDecoration(
+        color: RetrometerColors.surfaceElevated,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: RetrometerColors.primary.withValues(alpha: 0.3),
+        ),
+      ),
       alignment: Alignment.center,
       padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
       child: FittedBox(
@@ -586,17 +601,11 @@ class _DistanceReadout extends ConsumerWidget {
           children: [
             Text(
               distance.toStringAsFixed(2),
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 120,
-                fontWeight: FontWeight.bold,
-                fontFeatures: [FontFeature.tabularFigures()],
-                height: 1,
-              ),
+              style: RetrometerTextStyles.distanceNumber,
             ),
             const Text(
               'km',
-              style: TextStyle(color: Colors.white54, fontSize: 28),
+              style: RetrometerTextStyles.distanceUnit,
             ),
           ],
         ),
@@ -619,15 +628,14 @@ Future<void> _showConfigSheet(BuildContext context, WidgetRef ref) async {
 
   await showModalBottomSheet<void>(
     context: context,
-    backgroundColor: Colors.grey[900],
     isScrollControlled: true,
     builder: (context) => StatefulBuilder(
       builder: (context, setState) => Padding(
         padding: EdgeInsets.fromLTRB(
-          24,
-          24,
-          24,
-          24 + MediaQuery.of(context).viewInsets.bottom,
+          20,
+          8,
+          20,
+          20 + MediaQuery.of(context).viewInsets.bottom,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -635,23 +643,13 @@ Future<void> _showConfigSheet(BuildContext context, WidgetRef ref) async {
           children: [
             const Text(
               'Configurare stage',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
+              style: RetrometerTextStyles.sheetTitle,
             ),
             const SizedBox(height: 20),
             TextField(
               controller: nameCtrl,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(
-                labelText: 'Nume',
-                labelStyle: TextStyle(color: Colors.white70),
-                enabledBorder: UnderlineInputBorder(
-                  borderSide: BorderSide(color: Colors.white38),
-                ),
-              ),
+              style: const TextStyle(color: RetrometerColors.textPrimary),
+              decoration: const InputDecoration(labelText: 'Nume'),
             ),
             const SizedBox(height: 16),
             _NumberField(
@@ -734,8 +732,7 @@ class _NumberFieldState extends State<_NumberField> {
     return Row(
       children: [
         Expanded(
-          child: Text(widget.label,
-              style: const TextStyle(color: Colors.white70, fontSize: 16)),
+          child: Text(widget.label, style: RetrometerTextStyles.fieldLabel),
         ),
         SizedBox(
           width: 100,
@@ -745,13 +742,8 @@ class _NumberFieldState extends State<_NumberField> {
                 ? const TextInputType.numberWithOptions(decimal: true)
                 : TextInputType.number,
             textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.white, fontSize: 20),
+            style: RetrometerTextStyles.fieldInput,
             inputFormatters: [formatter],
-            decoration: const InputDecoration(
-              enabledBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: Colors.white38),
-              ),
-            ),
             onChanged: (s) {
               final v = double.tryParse(s);
               if (v != null) widget.onChanged(v);

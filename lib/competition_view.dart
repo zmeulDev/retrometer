@@ -8,6 +8,17 @@ import 'competition_providers.dart';
 import 'models.dart';
 import 'services/gps_service.dart';
 import 'state_providers.dart';
+import 'theme/retrometer_theme.dart';
+
+/// Dark picker theme (date/time pickers) tinted with the brand accent. The
+/// pickers don't inherit the app theme, so we wrap them explicitly.
+Widget pickerTheme(BuildContext context, Widget? child) => Theme(
+      data: ThemeData.dark().copyWith(
+        colorScheme:
+            const ColorScheme.dark(primary: RetrometerColors.primary),
+      ),
+      child: child!,
+    );
 
 // ---------------------------------------------------------------------------
 // Competitions list screen.
@@ -23,15 +34,8 @@ class CompetitionsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(competitionsProvider);
     return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        title: const Text('Competiții'),
-      ),
+      appBar: AppBar(title: const Text('Competiții')),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.green,
-        foregroundColor: Colors.black,
         child: const Icon(Icons.add),
         onPressed: () => _showCompetitionEditor(context, ref, null),
       ),
@@ -47,12 +51,10 @@ class CompetitionsScreen extends ConsumerWidget {
                   _CompetitionTile(competition: competitions[i]),
             );
           },
-          loading: () => const Center(
-            child: CircularProgressIndicator(color: Colors.greenAccent),
-          ),
+          loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(
             child: Text('Eroare: $e',
-                style: const TextStyle(color: Colors.white)),
+                style: const TextStyle(color: RetrometerColors.textPrimary)),
           ),
         ),
       ),
@@ -71,14 +73,15 @@ class _EmptyCompetitions extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.emoji_events, color: Colors.white24, size: 64),
+            Icon(Icons.emoji_events,
+                color: RetrometerColors.textFaint, size: 64),
             SizedBox(height: 16),
             Text(
               'Nicio competiție.\n'
               'Apasă + ca să adaugi prima competiție (nume, locație, piloți, '
               'mașină, categorie), apoi îi adaugi stagii.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white54, fontSize: 16, height: 1.4),
+              style: RetrometerTextStyles.emptyTitle,
             ),
           ],
         ),
@@ -97,10 +100,14 @@ class _CompetitionTile extends StatelessWidget {
     final hasStandings =
         competition.overallStanding > 0 || competition.categoryStanding > 0;
     return Material(
-      color: const Color(0xFF141414),
-      borderRadius: BorderRadius.circular(12),
+      color: RetrometerColors.surface,
+      borderRadius: BorderRadius.circular(14),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: RetrometerColors.divider),
+      ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         onTap: () => Navigator.of(context).push(
           MaterialPageRoute<void>(
             builder: (_) => CompetitionDetailScreen(id: competition.id),
@@ -114,7 +121,7 @@ class _CompetitionTile extends StatelessWidget {
               Row(
                 children: [
                   const Icon(Icons.emoji_events,
-                      color: Colors.greenAccent, size: 20),
+                      color: RetrometerColors.primary, size: 20),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -123,11 +130,7 @@ class _CompetitionTile extends StatelessWidget {
                           : competition.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: RetrometerTextStyles.tileTitle,
                     ),
                   ),
                   if (hasStandings)
@@ -168,7 +171,7 @@ class _CompetitionTile extends StatelessWidget {
                 ].join(' · '),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Colors.white54, fontSize: 13),
+                style: RetrometerTextStyles.meta,
               ),
             ],
           ),
@@ -192,18 +195,11 @@ class _StandingBadge extends StatelessWidget {
         : two(overall > 0 ? overall : category);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: Colors.greenAccent.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: Colors.greenAccent.withValues(alpha: 0.5)),
-      ),
+      decoration: RetrometerColors.pillDecoration(RetrometerColors.primary),
       child: Text(
         'loc $text',
-        style: const TextStyle(
-          color: Colors.greenAccent,
-          fontSize: 11,
-          fontWeight: FontWeight.bold,
-        ),
+        style: RetrometerTextStyles.badge
+            .copyWith(color: RetrometerColors.primary),
       ),
     );
   }
@@ -219,9 +215,9 @@ class _MetaChip extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, color: Colors.white54, size: 15),
+        Icon(icon, color: RetrometerColors.textTertiary, size: 15),
         const SizedBox(width: 4),
-        Text(text, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+        Text(text, style: RetrometerTextStyles.metaStrong),
       ],
     );
   }
@@ -240,14 +236,11 @@ class CompetitionDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(competitionsProvider);
     return Scaffold(
-      backgroundColor: Colors.black,
       appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
         title: const Text('Competiție'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.edit, color: Colors.greenAccent),
+            icon: const Icon(Icons.edit, color: RetrometerColors.primary),
             tooltip: 'Editează competiția',
             onPressed: () async {
               final comp = async.valueOrNull
@@ -257,7 +250,8 @@ class CompetitionDetailScreen extends ConsumerWidget {
             },
           ),
           IconButton(
-            icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+            icon: const Icon(Icons.delete_outline,
+                color: RetrometerColors.danger),
             tooltip: 'Șterge competiția',
             onPressed: () async {
               final confirmed = await _confirm(
@@ -274,8 +268,6 @@ class CompetitionDetailScreen extends ConsumerWidget {
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.green,
-        foregroundColor: Colors.black,
         child: const Icon(Icons.add),
         onPressed: () => _showStageEditor(context, ref, id, null),
       ),
@@ -314,12 +306,10 @@ class CompetitionDetailScreen extends ConsumerWidget {
               ],
             );
           },
-          loading: () => const Center(
-            child: CircularProgressIndicator(color: Colors.greenAccent),
-          ),
+          loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(
             child: Text('Eroare: $e',
-                style: const TextStyle(color: Colors.white)),
+                style: const TextStyle(color: RetrometerColors.textPrimary)),
           ),
         ),
       ),
@@ -338,13 +328,14 @@ class _EmptyStages extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.event_note, color: Colors.white24, size: 56),
+            Icon(Icons.event_note,
+                color: RetrometerColors.textFaint, size: 56),
             SizedBox(height: 14),
             Text(
               'Niciun stagiu în această competiție.\n'
               'Apasă + ca să adaugi primul stagiu.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white54, fontSize: 15, height: 1.4),
+              style: RetrometerTextStyles.emptyTitleSmall,
             ),
           ],
         ),
@@ -423,8 +414,11 @@ class _CompetitionHeader extends StatelessWidget {
     }
     return Container(
       width: double.infinity,
-      color: const Color(0xFF0C1A0C),
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      decoration: const BoxDecoration(
+        color: RetrometerColors.surfaceHeader,
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -432,11 +426,7 @@ class _CompetitionHeader extends StatelessWidget {
             competition.name.isEmpty ? '(fără nume)' : competition.name,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
+            style: RetrometerTextStyles.headerTitle,
           ),
           const SizedBox(height: 8),
           Wrap(
@@ -465,13 +455,14 @@ class _HeaderRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = highlight ? Colors.greenAccent : Colors.white70;
+    final color =
+        highlight ? RetrometerColors.primary : RetrometerColors.textSecondary;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(icon, color: color, size: 16),
         const SizedBox(width: 6),
-        Text('$label: ', style: TextStyle(color: Colors.white54, fontSize: 13)),
+        Text('$label: ', style: RetrometerTextStyles.meta),
         Text(value,
             style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.w600)),
       ],
@@ -516,13 +507,14 @@ class _MonitorStatusBar extends ConsumerWidget {
     }
     return Container(
       width: double.infinity,
-      color: const Color(0xFF0C1A0C),
+      color: RetrometerColors.surfaceHeader,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Text(
         parts.join('   ·   '),
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
-        style: const TextStyle(color: Colors.greenAccent, fontSize: 13),
+        style: const TextStyle(
+            color: RetrometerColors.primary, fontSize: 13),
       ),
     );
   }
@@ -563,20 +555,24 @@ class _StageTile extends ConsumerWidget {
     final Color statusColor;
     if (isRunning) {
       statusLabel = 'ÎN CURS';
-      statusColor = Colors.greenAccent;
+      statusColor = RetrometerColors.running;
     } else if (stage.started) {
       statusLabel = 'PORNIT';
-      statusColor = Colors.white54;
+      statusColor = RetrometerColors.started;
     } else {
       statusLabel = 'ÎN AȘTEPTARE';
-      statusColor = Colors.amberAccent;
+      statusColor = RetrometerColors.waiting;
     }
 
     return Material(
-      color: const Color(0xFF141414),
-      borderRadius: BorderRadius.circular(12),
+      color: RetrometerColors.surface,
+      borderRadius: BorderRadius.circular(14),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: RetrometerColors.divider),
+      ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         onTap: () => _showStageEditor(context, ref, competitionId, stage),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
@@ -590,22 +586,17 @@ class _StageTile extends ConsumerWidget {
                       stage.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: RetrometerTextStyles.tileTitle,
                     ),
                     const SizedBox(height: 6),
                     Row(
                       children: [
                         const Icon(Icons.schedule,
-                            color: Colors.white54, size: 16),
+                            color: RetrometerColors.textTertiary, size: 16),
                         const SizedBox(width: 6),
                         Text(
                           _formatDateTime(stage.startTime),
-                          style: const TextStyle(
-                              color: Colors.white70, fontSize: 14),
+                          style: RetrometerTextStyles.tileTime,
                         ),
                       ],
                     ),
@@ -613,7 +604,7 @@ class _StageTile extends ConsumerWidget {
                     Row(
                       children: [
                         const Icon(Icons.location_on,
-                            color: Colors.white54, size: 16),
+                            color: RetrometerColors.textTertiary, size: 16),
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
@@ -622,8 +613,7 @@ class _StageTile extends ConsumerWidget {
                             '(±${stage.geofenceRadiusM.toStringAsFixed(0)} m)',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                                color: Colors.white54, fontSize: 13),
+                            style: RetrometerTextStyles.meta,
                           ),
                         ),
                       ],
@@ -633,15 +623,14 @@ class _StageTile extends ConsumerWidget {
                       'țintă ${_fmtSpeed(stage.targetAvgSpeed)} / '
                       'max ${_fmtSpeed(stage.maxSpeedLimit)} km/h'
                       '${stage.autoStart ? ' · auto-start' : ' · manual'}',
-                      style: const TextStyle(
-                          color: Colors.white38, fontSize: 13),
+                      style: RetrometerTextStyles.metaMuted,
                     ),
                     if (stage.endLatitude != null && stage.endLongitude != null) ...[
                       const SizedBox(height: 4),
                       Row(
                         children: [
                           const Icon(Icons.flag,
-                              color: Colors.white54, size: 16),
+                              color: RetrometerColors.textTertiary, size: 16),
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
@@ -651,8 +640,7 @@ class _StageTile extends ConsumerWidget {
                               '${stage.autoStop ? ' · auto-stop' : ''}',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                  color: Colors.white54, fontSize: 13),
+                              style: RetrometerTextStyles.meta,
                             ),
                           ),
                         ],
@@ -668,8 +656,7 @@ class _StageTile extends ConsumerWidget {
                           if (stage.allocatedTimeSeconds > 0)
                             'timp ${_fmtMmSs(stage.allocatedTimeSeconds)}',
                         ].join(' · '),
-                        style: const TextStyle(
-                            color: Colors.white38, fontSize: 13),
+                        style: RetrometerTextStyles.metaMuted,
                       ),
                     ],
                   ],
@@ -683,24 +670,19 @@ class _StageTile extends ConsumerWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: statusColor.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: statusColor.withValues(alpha: 0.5)),
-                    ),
+                    decoration:
+                        RetrometerColors.pillDecoration(statusColor),
                     child: Text(
                       statusLabel,
-                      style: TextStyle(
-                        color: statusColor,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: RetrometerTextStyles.badge
+                          .copyWith(color: statusColor),
                     ),
                   ),
                   const SizedBox(height: 8),
                   if (!isRunning)
                     IconButton(
-                      icon: const Icon(Icons.play_arrow, color: Colors.green),
+                      icon: const Icon(Icons.play_arrow,
+                          color: RetrometerColors.startFill),
                       tooltip: 'Pornește acum',
                       constraints: const BoxConstraints(
                           minHeight: 32, minWidth: 32),
@@ -713,7 +695,8 @@ class _StageTile extends ConsumerWidget {
                               .markStarted(competitionId, stage.id)),
                     ),
                   IconButton(
-                    icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                    icon: const Icon(Icons.delete_outline,
+                        color: RetrometerColors.danger),
                     tooltip: 'Șterge',
                     constraints:
                         const BoxConstraints(minHeight: 32, minWidth: 32),
@@ -744,7 +727,6 @@ Future<void> _showStageEditor(
 ) async {
   final result = await showModalBottomSheet<_StageDraft>(
     context: context,
-    backgroundColor: Colors.grey[900],
     isScrollControlled: true,
     builder: (context) => _StageEditor(existing: existing),
   );
@@ -903,7 +885,7 @@ class _StageEditorState extends State<_StageEditor> {
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     return Padding(
-      padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + bottomInset),
+      padding: EdgeInsets.fromLTRB(20, 8, 20, 20 + bottomInset),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -911,23 +893,13 @@ class _StageEditorState extends State<_StageEditor> {
           children: [
             Text(
               widget.existing == null ? 'Stage nou' : 'Editare stage',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
+              style: RetrometerTextStyles.sheetTitle,
             ),
             const SizedBox(height: 16),
             TextField(
               controller: _nameCtrl,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(
-                labelText: 'Nume',
-                labelStyle: TextStyle(color: Colors.white70),
-                enabledBorder: UnderlineInputBorder(
-                  borderSide: BorderSide(color: Colors.white38),
-                ),
-              ),
+              style: const TextStyle(color: RetrometerColors.textPrimary),
+              decoration: const InputDecoration(labelText: 'Nume'),
               onChanged: (v) => _draft.name = v,
             ),
             const SizedBox(height: 16),
@@ -951,21 +923,17 @@ class _StageEditorState extends State<_StageEditor> {
             ),
             const SizedBox(height: 20),
             const Text('Locație start (geofence)',
-                style: TextStyle(color: Colors.greenAccent, fontSize: 16)),
+                style: RetrometerTextStyles.sectionLabel),
             const SizedBox(height: 8),
             Row(
               children: [
                 Expanded(
                   child: TextField(
                     controller: _addressCtrl,
-                    style: const TextStyle(color: Colors.white),
+                    style: const TextStyle(color: RetrometerColors.textPrimary),
                     decoration: const InputDecoration(
                       isDense: true,
                       hintText: 'Adresă (ex. Str. Mare 12, Sibiu)',
-                      hintStyle: TextStyle(color: Colors.white30),
-                      enabledBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(color: Colors.white38),
-                      ),
                     ),
                   ),
                 ),
@@ -976,9 +944,11 @@ class _StageEditorState extends State<_StageEditor> {
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.greenAccent),
+                              strokeWidth: 2,
+                              color: RetrometerColors.primary),
                         )
-                      : const Icon(Icons.search, color: Colors.greenAccent),
+                      : const Icon(Icons.search,
+                          color: RetrometerColors.primary),
                   tooltip: 'Caută adresă',
                   onPressed: _geocoding ? null : _geocodeAddress,
                 ),
@@ -988,7 +958,7 @@ class _StageEditorState extends State<_StageEditor> {
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(_addressError!,
-                    style: const TextStyle(color: Colors.redAccent, fontSize: 12)),
+                    style: RetrometerTextStyles.fieldError),
               ),
             const SizedBox(height: 8),
             Row(
@@ -1026,9 +996,10 @@ class _StageEditorState extends State<_StageEditor> {
                 ),
                 const SizedBox(width: 8),
                 TextButton.icon(
-                  icon: const Icon(Icons.my_location, color: Colors.greenAccent),
+                  icon: const Icon(Icons.my_location,
+                      color: RetrometerColors.primary),
                   label: const Text('Locația mea',
-                      style: TextStyle(color: Colors.greenAccent)),
+                      style: TextStyle(color: RetrometerColors.primary)),
                   onPressed: _useCurrentLocation,
                 ),
               ],
@@ -1046,8 +1017,7 @@ class _StageEditorState extends State<_StageEditor> {
               children: [
                 Expanded(
                   child: Text('Timp total alocat',
-                      style: const TextStyle(
-                          color: Colors.white70, fontSize: 16)),
+                      style: RetrometerTextStyles.fieldLabel),
                 ),
                 SizedBox(
                   width: 60,
@@ -1055,15 +1025,13 @@ class _StageEditorState extends State<_StageEditor> {
                     controller: _allocMinCtrl,
                     keyboardType: TextInputType.number,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white, fontSize: 20),
+                    style: RetrometerTextStyles.fieldInput,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     decoration: const InputDecoration(
                       isDense: true,
                       hintText: 'min',
-                      hintStyle: TextStyle(color: Colors.white30, fontSize: 12),
-                      enabledBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(color: Colors.white38),
-                      ),
+                      hintStyle: TextStyle(
+                          color: RetrometerColors.hint, fontSize: 12),
                     ),
                     onChanged: (s) {
                       final m = int.tryParse(s) ?? 0;
@@ -1075,7 +1043,9 @@ class _StageEditorState extends State<_StageEditor> {
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 6),
                   child: Text(':',
-                      style: TextStyle(color: Colors.white70, fontSize: 20)),
+                      style: TextStyle(
+                          color: RetrometerColors.textSecondary,
+                          fontSize: 20)),
                 ),
                 SizedBox(
                   width: 60,
@@ -1083,15 +1053,13 @@ class _StageEditorState extends State<_StageEditor> {
                     controller: _allocSecCtrl,
                     keyboardType: TextInputType.number,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white, fontSize: 20),
+                    style: RetrometerTextStyles.fieldInput,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     decoration: const InputDecoration(
                       isDense: true,
                       hintText: 'sec',
-                      hintStyle: TextStyle(color: Colors.white30, fontSize: 12),
-                      enabledBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(color: Colors.white38),
-                      ),
+                      hintStyle: TextStyle(
+                          color: RetrometerColors.hint, fontSize: 12),
                     ),
                     onChanged: (s) {
                       final sec = int.tryParse(s) ?? 0;
@@ -1104,21 +1072,17 @@ class _StageEditorState extends State<_StageEditor> {
             ),
             const SizedBox(height: 20),
             const Text('Locație finală (geofence auto-stop)',
-                style: TextStyle(color: Colors.greenAccent, fontSize: 16)),
+                style: RetrometerTextStyles.sectionLabel),
             const SizedBox(height: 8),
             Row(
               children: [
                 Expanded(
                   child: TextField(
                     controller: _endAddressCtrl,
-                    style: const TextStyle(color: Colors.white),
+                    style: const TextStyle(color: RetrometerColors.textPrimary),
                     decoration: const InputDecoration(
                       isDense: true,
                       hintText: 'Adresă sosire (ex. Str. Mare 99, Sibiu)',
-                      hintStyle: TextStyle(color: Colors.white30),
-                      enabledBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(color: Colors.white38),
-                      ),
                     ),
                   ),
                 ),
@@ -1129,9 +1093,11 @@ class _StageEditorState extends State<_StageEditor> {
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.greenAccent),
+                              strokeWidth: 2,
+                              color: RetrometerColors.primary),
                         )
-                      : const Icon(Icons.search, color: Colors.greenAccent),
+                      : const Icon(Icons.search,
+                          color: RetrometerColors.primary),
                   tooltip: 'Caută adresă',
                   onPressed: _endGeocoding ? null : _geocodeEndAddress,
                 ),
@@ -1141,8 +1107,7 @@ class _StageEditorState extends State<_StageEditor> {
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(_endAddressError!,
-                    style: const TextStyle(
-                        color: Colors.redAccent, fontSize: 12)),
+                    style: RetrometerTextStyles.fieldError),
               ),
             const SizedBox(height: 8),
             Row(
@@ -1180,9 +1145,10 @@ class _StageEditorState extends State<_StageEditor> {
                 ),
                 const SizedBox(width: 8),
                 TextButton.icon(
-                  icon: const Icon(Icons.my_location, color: Colors.greenAccent),
+                  icon: const Icon(Icons.my_location,
+                      color: RetrometerColors.primary),
                   label: const Text('Locația mea',
-                      style: TextStyle(color: Colors.greenAccent)),
+                      style: TextStyle(color: RetrometerColors.primary)),
                   onPressed: _useCurrentEndLocation,
                 ),
               ],
@@ -1190,7 +1156,7 @@ class _StageEditorState extends State<_StageEditor> {
             SwitchListTile(
               dense: true,
               title: const Text('Auto-stop la ajungere în geofence',
-                  style: TextStyle(color: Colors.white)),
+                  style: TextStyle(color: RetrometerColors.textPrimary)),
               value: _draft.autoStop,
               onChanged: (v) => setState(() => _draft.autoStop = v),
             ),
@@ -1198,7 +1164,7 @@ class _StageEditorState extends State<_StageEditor> {
             SwitchListTile(
               dense: true,
               title: const Text('Auto-start la ora + locație',
-                  style: TextStyle(color: Colors.white)),
+                  style: TextStyle(color: RetrometerColors.textPrimary)),
               value: _draft.autoStart,
               onChanged: (v) => setState(() => _draft.autoStart = v),
             ),
@@ -1360,7 +1326,7 @@ class _DateTimeField extends StatelessWidget {
       children: [
         Expanded(
           child: Text('Start: ${_formatDateTime(value)}',
-              style: const TextStyle(color: Colors.white70, fontSize: 16)),
+              style: RetrometerTextStyles.fieldLabel),
         ),
         TextButton(
           onPressed: () async {
@@ -1369,34 +1335,20 @@ class _DateTimeField extends StatelessWidget {
               initialDate: value,
               firstDate: DateTime.now().subtract(const Duration(days: 1)),
               lastDate: DateTime.now().add(const Duration(days: 365)),
-              builder: (context, child) => Theme(
-                data: ThemeData.dark().copyWith(
-                  colorScheme: const ColorScheme.dark(
-                    primary: Colors.greenAccent,
-                  ),
-                ),
-                child: child!,
-              ),
+              builder: pickerTheme,
             );
             if (d == null) return;
             if (!context.mounted) return;
             final t = await showTimePicker(
               context: context,
               initialTime: TimeOfDay.fromDateTime(value),
-              builder: (context, child) => Theme(
-                data: ThemeData.dark().copyWith(
-                  colorScheme: const ColorScheme.dark(
-                    primary: Colors.greenAccent,
-                  ),
-                ),
-                child: child!,
-              ),
+              builder: pickerTheme,
             );
             if (t == null) return;
             onChanged(DateTime(d.year, d.month, d.day, t.hour, t.minute));
           },
           child: const Text('Alege data/ora',
-              style: TextStyle(color: Colors.greenAccent)),
+              style: TextStyle(color: RetrometerColors.primary)),
         ),
       ],
     );
@@ -1447,8 +1399,7 @@ class _NumberFieldState extends State<_NumberField> {
     return Row(
       children: [
         Expanded(
-          child: Text(widget.label,
-              style: const TextStyle(color: Colors.white70, fontSize: 16)),
+          child: Text(widget.label, style: RetrometerTextStyles.fieldLabel),
         ),
         SizedBox(
           width: 100,
@@ -1458,13 +1409,8 @@ class _NumberFieldState extends State<_NumberField> {
                 ? const TextInputType.numberWithOptions(decimal: true)
                 : TextInputType.number,
             textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.white, fontSize: 20),
+            style: RetrometerTextStyles.fieldInput,
             inputFormatters: [formatter],
-            decoration: const InputDecoration(
-              enabledBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: Colors.white38),
-              ),
-            ),
             onChanged: (s) {
               final v = double.tryParse(s);
               if (v != null) widget.onChanged(v);
@@ -1498,14 +1444,10 @@ class _CoordFieldState extends State<_CoordField> {
       controller: widget.controller,
       keyboardType:
           const TextInputType.numberWithOptions(decimal: true, signed: true),
-      style: const TextStyle(color: Colors.white),
+      style: const TextStyle(color: RetrometerColors.textPrimary),
       decoration: InputDecoration(
         labelText: widget.label,
-        labelStyle: const TextStyle(color: Colors.white70),
         isDense: true,
-        enabledBorder: const UnderlineInputBorder(
-          borderSide: BorderSide(color: Colors.white38),
-        ),
       ),
       onChanged: (s) {
         final v = double.tryParse(s);
@@ -1526,7 +1468,6 @@ Future<void> _showCompetitionEditor(
 ) async {
   final result = await showModalBottomSheet<_CompetitionDraft>(
     context: context,
-    backgroundColor: Colors.grey[900],
     isScrollControlled: true,
     builder: (context) => _CompetitionEditor(existing: existing),
   );
@@ -1672,7 +1613,7 @@ class _CompetitionEditorState extends State<_CompetitionEditor> {
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     return Padding(
-      padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + bottomInset),
+      padding: EdgeInsets.fromLTRB(20, 8, 20, 20 + bottomInset),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1682,11 +1623,7 @@ class _CompetitionEditorState extends State<_CompetitionEditor> {
               widget.existing == null
                   ? 'Competiție nouă'
                   : 'Editare competiție',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
+              style: RetrometerTextStyles.sheetTitle,
             ),
             const SizedBox(height: 16),
             _TextField(controller: _nameCtrl, label: 'Nume competiție'),
@@ -1729,7 +1666,7 @@ class _CompetitionEditorState extends State<_CompetitionEditor> {
             ),
             const SizedBox(height: 16),
             const Text('Locul curent',
-                style: TextStyle(color: Colors.greenAccent, fontSize: 16)),
+                style: RetrometerTextStyles.sectionLabel),
             const SizedBox(height: 8),
             Row(
               children: [
@@ -1798,14 +1735,8 @@ class _TextField extends StatelessWidget {
     return TextField(
       controller: controller,
       keyboardType: keyboardType,
-      style: const TextStyle(color: Colors.white),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(color: Colors.white70),
-        enabledBorder: const UnderlineInputBorder(
-          borderSide: BorderSide(color: Colors.white38),
-        ),
-      ),
+      style: const TextStyle(color: RetrometerColors.textPrimary),
+      decoration: InputDecoration(labelText: label),
     );
   }
 }
@@ -1831,8 +1762,7 @@ class _IntFieldState extends State<_IntField> {
     return Row(
       children: [
         Expanded(
-          child: Text(widget.label,
-              style: const TextStyle(color: Colors.white70, fontSize: 15)),
+          child: Text(widget.label, style: RetrometerTextStyles.fieldLabelSmall),
         ),
         SizedBox(
           width: 90,
@@ -1840,13 +1770,8 @@ class _IntFieldState extends State<_IntField> {
             controller: widget.controller,
             keyboardType: TextInputType.number,
             textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.white, fontSize: 18),
+            style: RetrometerTextStyles.fieldInputSmall,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: const InputDecoration(
-              enabledBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: Colors.white38),
-              ),
-            ),
             onChanged: (s) {
               final v = int.tryParse(s);
               if (v != null) widget.onChanged(v);
@@ -1879,8 +1804,7 @@ class _DecimalFieldState extends State<_DecimalField> {
     return Row(
       children: [
         Expanded(
-          child: Text(widget.label,
-              style: const TextStyle(color: Colors.white70, fontSize: 15)),
+          child: Text(widget.label, style: RetrometerTextStyles.fieldLabelSmall),
         ),
         SizedBox(
           width: 110,
@@ -1889,15 +1813,10 @@ class _DecimalFieldState extends State<_DecimalField> {
             keyboardType:
                 const TextInputType.numberWithOptions(decimal: true),
             textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.white, fontSize: 18),
+            style: RetrometerTextStyles.fieldInputSmall,
             inputFormatters: [
               FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*$')),
             ],
-            decoration: const InputDecoration(
-              enabledBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: Colors.white38),
-              ),
-            ),
             onChanged: (s) {
               final v = double.tryParse(s);
               if (v != null) widget.onChanged(v);
@@ -1924,7 +1843,7 @@ class _DateField extends StatelessWidget {
             value == null
                 ? 'Data: —'
                 : 'Data: ${_formatDate(value!)}',
-            style: const TextStyle(color: Colors.white70, fontSize: 16),
+            style: RetrometerTextStyles.fieldLabel,
           ),
         ),
         TextButton(
@@ -1934,25 +1853,19 @@ class _DateField extends StatelessWidget {
               initialDate: value ?? DateTime.now(),
               firstDate: DateTime.now().subtract(const Duration(days: 365)),
               lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
-              builder: (context, child) => Theme(
-                data: ThemeData.dark().copyWith(
-                  colorScheme: const ColorScheme.dark(
-                    primary: Colors.greenAccent,
-                  ),
-                ),
-                child: child!,
-              ),
+              builder: pickerTheme,
             );
             onChanged(d);
           },
           child: Text(
             value == null ? 'Alege data' : 'Schimbă',
-            style: const TextStyle(color: Colors.greenAccent),
+            style: const TextStyle(color: RetrometerColors.primary),
           ),
         ),
         if (value != null)
           IconButton(
-            icon: const Icon(Icons.clear, color: Colors.white54, size: 18),
+            icon: const Icon(Icons.clear,
+                color: RetrometerColors.textTertiary, size: 18),
             tooltip: 'Șterge data',
             onPressed: () => onChanged(null),
           ),
@@ -2003,9 +1916,8 @@ Future<bool> _confirm(
   final result = await showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
-      backgroundColor: Colors.grey[900],
-      title: Text(title, style: const TextStyle(color: Colors.white)),
-      content: Text(message, style: const TextStyle(color: Colors.white70)),
+      title: Text(title),
+      content: Text(message),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(false),
@@ -2013,7 +1925,8 @@ Future<bool> _confirm(
         ),
         TextButton(
           onPressed: () => Navigator.of(context).pop(true),
-          child: const Text('Șterge', style: TextStyle(color: Colors.redAccent)),
+          child: const Text('Șterge',
+              style: TextStyle(color: RetrometerColors.danger)),
         ),
       ],
     ),

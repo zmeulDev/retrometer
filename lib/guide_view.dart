@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'theme/retrometer_theme.dart';
+
 const _kOnboardedKey = 'retrometer.onboarded';
 
 /// On first launch only: pushes the guide screen and marks onboarding done.
@@ -22,12 +24,7 @@ class GuideScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        title: const Text('Ghid de utilizare'),
-      ),
+      appBar: AppBar(title: const Text('Ghid de utilizare')),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
@@ -42,7 +39,7 @@ class GuideScreen extends StatelessWidget {
             ),
             _GuideRow(
               icon: Icons.play_arrow,
-              color: Colors.greenAccent,
+              color: RetrometerColors.primary,
               text: 'Apasă ▶ START. Se cere permisiunea de locație; '
                   'ecranul rămâne aprins cât durează treapta.',
             ),
@@ -50,25 +47,25 @@ class GuideScreen extends StatelessWidget {
             _SectionTitle('Indicatorul Δ (secunde)'),
             _GuideRow(
               icon: Icons.check,
-              color: Colors.greenAccent,
+              color: RetrometerColors.primary,
               text: 'VERDE — LA TIMP: ești în ±1 s față de timpul ideal. '
                   'Țintește să stai aici.',
             ),
             _GuideRow(
               icon: Icons.arrow_upward,
-              color: Colors.redAccent,
+              color: RetrometerColors.danger,
               text: 'ROȘU — AVANS (−): mergi prea repede. Frânează ușor până '
                   'Δ revine la 0.',
             ),
             _GuideRow(
               icon: Icons.arrow_downward,
-              color: Colors.yellowAccent,
+              color: RetrometerColors.secondary,
               text: 'GALBEN — ÎNTÂRZIERE (+): mergi prea încet. Accelierează '
                   'ușor până Δ revine la 0.',
             ),
             _GuideRow(
               icon: Icons.warning_amber,
-              color: Colors.redAccent,
+              color: RetrometerColors.danger,
               text: 'Dacă viteza depășește limita maximă, apare alerta '
                   '⚠ OVER SPEED.',
             ),
@@ -95,7 +92,7 @@ class GuideScreen extends StatelessWidget {
             _SectionTitle('Competiții și stagii'),
             _GuideRow(
               icon: Icons.emoji_events,
-              color: Colors.greenAccent,
+              color: RetrometerColors.primary,
               text: 'Apasă 📅 (sus) ca să vezi competițiile. Fiecare competiție '
                   'ține detaliile (nume, locație, piloți, mașină, categorie, '
                   'contact, cost, loc la general/categorie) și lista ei de '
@@ -115,7 +112,7 @@ class GuideScreen extends StatelessWidget {
             ),
             _GuideRow(
               icon: Icons.play_arrow,
-              color: Colors.greenAccent,
+              color: RetrometerColors.primary,
               text: 'Cu auto-start pornit, treapta începe singură când ora '
                   'ajunge și ești în interiorul geofence-ului. Poți porni '
                   'și manual cu ▶ de pe fiecare stage.',
@@ -124,13 +121,13 @@ class GuideScreen extends StatelessWidget {
             _SectionTitle('Altele'),
             _GuideRow(
               icon: Icons.location_on,
-              color: Colors.greenAccent,
+              color: RetrometerColors.primary,
               text: '📍 Sus apare localitatea curentă (din GPS). Se '
                   'actualizează când te muți cu ~1 km.',
             ),
             _GuideRow(
               icon: Icons.stop,
-              color: Colors.redAccent,
+              color: RetrometerColors.danger,
               text: '■ STOP oprește treapta (păstrează distanța). '
                   '↻ RESET o reinițializează.',
             ),
@@ -161,11 +158,7 @@ class _SectionTitle extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 8),
       child: Text(
         text,
-        style: const TextStyle(
-          color: Colors.greenAccent,
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-        ),
+        style: RetrometerTextStyles.guideSection,
       ),
     );
   }
@@ -185,13 +178,14 @@ class _GuideRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: color ?? Colors.white70, size: 22),
+          Icon(icon,
+              color: color ?? RetrometerColors.textSecondary, size: 22),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               text,
               style: TextStyle(
-                color: color ?? Colors.white70,
+                color: color ?? RetrometerColors.textSecondary,
                 fontSize: 15,
                 height: 1.35,
               ),
@@ -209,14 +203,15 @@ class _CockpitMockup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const border = BorderSide(color: Colors.white24, width: 1);
+    const border =
+        BorderSide(color: RetrometerColors.dividerStrong, width: 1);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const Text(
           'Așezarea ecranului',
           style: TextStyle(
-            color: Colors.white70,
+            color: RetrometerColors.textSecondary,
             fontSize: 13,
             fontWeight: FontWeight.bold,
           ),
@@ -224,27 +219,27 @@ class _CockpitMockup extends StatelessWidget {
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
-            border: Border.all(color: Colors.white24),
+            border: Border.all(color: RetrometerColors.dividerStrong),
             borderRadius: BorderRadius.circular(8),
           ),
           child: const Column(
             children: [
               _MockZone(
                 height: 36,
-                color: Color(0xFF111111),
+                color: RetrometerColors.surface,
                 border: border,
                 label: '📍 Localitate · nume · timp · controale',
               ),
               _MockZone(
                 height: 90,
-                color: Color(0xFF1B5E20),
+                color: RetrometerColors.onTimeBg,
                 border: border,
                 label: 'Δ  AVANS / ÎNTÂRZIERE / LA TIMP',
                 big: true,
               ),
               _MockZone(
                 height: 80,
-                color: Colors.black,
+                color: RetrometerColors.background,
                 border: border,
                 label: '− 10 m   |   14.56 km   |   + 10 m',
               ),
@@ -287,7 +282,7 @@ class _MockZone extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
         textAlign: TextAlign.center,
         style: TextStyle(
-          color: big ? Colors.greenAccent : Colors.white70,
+          color: big ? RetrometerColors.primary : RetrometerColors.textSecondary,
           fontSize: big ? 16 : 12,
           fontWeight: big ? FontWeight.bold : FontWeight.normal,
         ),
