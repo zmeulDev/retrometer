@@ -1,6 +1,6 @@
 # Retrometer — Handoff implementare
 
-> Status: **implementat** (21 iun. 2026, actualizat 21 iun. 2026). `flutter analyze` curat (0 issues), `flutter test` 31/31 pass pe host. APK build-at și lansat pe device fizic **A059** (android-arm64, Android 16/API 36, serial `0014515BL000287`): orientare liberă (portrait↔landscape verificat prin rotație), viteze țintă/max cu zecimale în editorul de stagii și în cockpit (`țintă 35.9`). Geolocator pornit, profil instalat.
+> Status: **implementat** (21 iun. 2026, actualizat 21 iun. 2026). `flutter analyze` curat (0 issues), `flutter test` 31/31 pass pe host, `flutter build apk --debug` reușește cu noul applicationId. APK-ul a fost verificat end-to-end pe device fizic **A059** (android-arm64, Android 16/API 36, serial `0014515BL000287`): build → install ca `com.zmeul.retrometer` → lansare (`MainActivity` rezolvat, a declanșat dialog de permisiune locație = install fresh), orientare liberă (portrait↔landscape) + viteze țintă cu zecimale (`țintă 35.9`). **A059 este acum curat**: ambele pachete (`com.zmeul.retrometer` și vechiul `com.example.retrometer`) au fost dezinstalate — `pm path` întoarce NOT installed pentru ambele; următoarea lansare va fi un install proaspăt (date `retrometer.*` fresh).
 > Mai jos: arhitectura realizată, devierea de la specificație, cum se rulează/testează, apoi **specificația originală** păstrată integral.
 
 ## Ce a fost implementat
@@ -16,6 +16,7 @@ UI: butonul 📅 din cockpit deschide **lista de competiții** → tap pe o comp
 ### Stack realizat
 
 - **Flutter 3.38 / Dart 3.10.**
+- **Identitate aplicație: `com.zmeul.retrometer`** (applicationId Android + namespace, PRODUCT_BUNDLE_IDENTIFIER iOS/macOS, APPLICATION_ID Linux, CompanyName Windows). Pachetul Kotlin: `android/app/src/main/kotlin/com/zmeul/retrometer/MainActivity.kt`. Redenumit din `com.example.retrometer` pe 21 iun. 2026. Datele persistente (SharedPreferences `retrometer.*`) sunt per-aplicație/per-pachet, deci NU se mută între pachete — o schimbare de applicationId = install fresh (competițiile/stagiile salvate în pachetul vechi nu apar în cel nou). Ambele pachete (`com.zmeul.retrometer` + vechiul `com.example.retrometer`) sunt acum dezinstalate de pe A059.
 - **State management: `flutter_riverpod` 2.x — manual, NU codegen.** (Vezi devierea mai jos.)
 - **Modele imuabile: `freezed` 2.x** (codegen via `build_runner`).
 - Pachete: `geolocator` 13.x (distanță/viteză/geofence), `geocoding` 4.x (reverse + forward geocode), `shared_preferences` 2.x (persistența programului), `wakelock_plus` (ecran aprins), `vibration` (haptic).
