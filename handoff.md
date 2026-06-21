@@ -23,7 +23,7 @@ Funcționalități:
 
 ## Design
 
-Tema centralizată în `lib/theme/retrometer_theme.dart`: `RetrometerColors` + `RetrometerTextStyles` + `retrometerTheme()` (component themes). Paletă „Rally" (blue-gray + teal, calmer decât neon greenAccent; întunecată pentru condus noaptea):
+Tema centralizată în `lib/theme/retrometer_theme.dart`: `RetrometerColors` + `RetrometerTextStyles` + `retrometerTheme()` (component themes). Paletă „Rally" (blue-gray + teal, întunecată pentru condus noaptea):
 
 - Suprafețe: `background #2D2E36`, `surface #363740`, `surfaceElevated #42434D`, `surfaceHeader #1F2A26`, `sheet #3A3B44`.
 - Accente: `primary #41DFB4` (teal), `secondary #FFEE58` (galben, Δ întârziere), `danger #FF5252`.
