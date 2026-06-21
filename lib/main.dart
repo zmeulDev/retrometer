@@ -6,11 +6,9 @@ import 'cockpit_view.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Dashboard mount: prefer landscape, keep the bar dark for high contrast.
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.landscapeLeft,
-    DeviceOrientation.landscapeRight,
-  ]);
+  // Usable in any orientation (portrait or landscape) on phones and tablets;
+  // keep the bar dark for high contrast on a dashboard mount.
+  await SystemChrome.setPreferredOrientations(DeviceOrientation.values);
   SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.light);
   runApp(const ProviderScope(child: RetrometerApp()));
 }

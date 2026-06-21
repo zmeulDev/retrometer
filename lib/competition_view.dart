@@ -630,8 +630,8 @@ class _StageTile extends ConsumerWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'țintă ${stage.targetAvgSpeed.toStringAsFixed(0)} / '
-                      'max ${stage.maxSpeedLimit.toStringAsFixed(0)} km/h'
+                      'țintă ${_fmtSpeed(stage.targetAvgSpeed)} / '
+                      'max ${_fmtSpeed(stage.maxSpeedLimit)} km/h'
                       '${stage.autoStart ? ' · auto-start' : ' · manual'}',
                       style: const TextStyle(
                           color: Colors.white38, fontSize: 13),
@@ -939,12 +939,14 @@ class _StageEditorState extends State<_StageEditor> {
             _NumberField(
               label: 'Viteză medie țintă (km/h)',
               value: _draft.targetAvgSpeed,
+              decimals: 1,
               onChanged: (v) => _draft.targetAvgSpeed = v,
             ),
             const SizedBox(height: 16),
             _NumberField(
               label: 'Limită maximă (km/h)',
               value: _draft.maxSpeedLimit,
+              decimals: 1,
               onChanged: (v) => _draft.maxSpeedLimit = v,
             ),
             const SizedBox(height: 20),
@@ -1969,6 +1971,11 @@ DateTime _roundToMinute(DateTime dt) =>
     DateTime(dt.year, dt.month, dt.day, dt.hour, dt.minute);
 
 String _fmtCoord(double v) => v.toStringAsFixed(5);
+
+/// Speed display: whole numbers without a decimal (40), fractional with one
+/// (35.9) — so a target average entered as 35.9 shows as 35.9, not 36.
+String _fmtSpeed(double v) =>
+    v % 1 == 0 ? v.toStringAsFixed(0) : v.toStringAsFixed(1);
 
 String _fmtMmSs(int totalSeconds) {
   final m = totalSeconds ~/ 60;

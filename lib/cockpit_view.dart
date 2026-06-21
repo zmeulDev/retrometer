@@ -68,135 +68,187 @@ class _TopInfoBar extends ConsumerWidget {
     final competition = ref.watch(activeCompetitionProvider);
 
     return RepaintBoundary(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        child: Row(
-          children: [
-            Expanded(
+      child: LayoutBuilder(
+        builder: (context, c) {
+          // Narrow screens (phones, split views) have less horizontal room for
+          // the whole info + controls row. When there's also enough vertical
+          // room (portrait phones), split into two rows so labels stay legible;
+          // otherwise fall back to a compact single row (icon-only controls).
+          final compact = c.maxWidth < 520;
+          final twoRows = compact && c.maxHeight > 100;
+          final padH = compact ? 8.0 : 12.0;
+
+          final localityStyle = TextStyle(
+            color: Colors.white,
+            fontSize: compact ? 15 : 18,
+            fontWeight: FontWeight.bold,
+          );
+          final elapsedStyle = TextStyle(
+            color: Colors.white,
+            fontSize: compact ? 15 : 18,
+            fontWeight: FontWeight.bold,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          );
+
+          Widget localityBlock = Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.location_on,
+                        color: Colors.greenAccent, size: compact ? 16 : 18),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        locality,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: localityStyle,
+                      ),
+                    ),
+                  ],
+                ),
+                if (competition != null &&
+                    (competition.name.isNotEmpty ||
+                        competition.category.isNotEmpty))
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.emoji_events,
+                            color: Colors.greenAccent, size: 13),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            [
+                              if (competition.name.isNotEmpty)
+                                competition.name,
+                              if (competition.category.isNotEmpty)
+                                competition.category,
+                            ].join(' · '),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.greenAccent,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          );
+
+          final elapsedWidget = Text(_formatElapsed(elapsed), style: elapsedStyle);
+          final competitionsBtn = IconButton(
+            icon: Icon(Icons.event_note,
+                color: Colors.greenAccent, size: compact ? 18 : 20),
+            tooltip: 'Competiții',
+            constraints: BoxConstraints(
+                minHeight: compact ? 30 : 32, minWidth: compact ? 30 : 32),
+            padding: EdgeInsets.zero,
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const CompetitionsScreen(),
+              ),
+            ),
+          );
+          final helpBtn = IconButton(
+            icon: Icon(Icons.help_outline,
+                color: Colors.white70, size: compact ? 18 : 20),
+            tooltip: 'Cum se folosește',
+            constraints: BoxConstraints(
+                minHeight: compact ? 30 : 32, minWidth: compact ? 30 : 32),
+            padding: EdgeInsets.zero,
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const GuideScreen(),
+              ),
+            ),
+          );
+
+          if (twoRows) {
+            return Padding(
+              padding: EdgeInsets.symmetric(horizontal: padH, vertical: 2),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.location_on,
-                          color: Colors.greenAccent, size: 18),
-                      const SizedBox(width: 6),
-                      Flexible(
-                        child: Text(
-                          locality,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
+                      localityBlock,
+                      const SizedBox(width: 8),
+                      elapsedWidget,
+                      const SizedBox(width: 4),
+                      competitionsBtn,
+                      helpBtn,
                     ],
                   ),
-                  if (competition != null &&
-                      (competition.name.isNotEmpty ||
-                          competition.category.isNotEmpty))
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.emoji_events,
-                              color: Colors.greenAccent, size: 13),
-                          const SizedBox(width: 4),
-                          Flexible(
-                            child: Text(
-                              [
-                                if (competition.name.isNotEmpty)
-                                  competition.name,
-                                if (competition.category.isNotEmpty)
-                                  competition.category,
-                              ].join(' · '),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.greenAccent,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                  const SizedBox(height: 2),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [_StageControls(status: status, compact: false)],
+                  ),
                 ],
               ),
+            );
+          }
+
+          return Padding(
+            padding: EdgeInsets.symmetric(horizontal: padH, vertical: 4),
+            child: Row(
+              children: [
+                localityBlock,
+                SizedBox(width: compact ? 6 : 10),
+                elapsedWidget,
+                SizedBox(width: compact ? 4 : 6),
+                competitionsBtn,
+                helpBtn,
+                SizedBox(width: compact ? 2 : 4),
+                _StageControls(status: status, compact: compact),
+              ],
             ),
-            const SizedBox(width: 10),
-            Text(
-              _formatElapsed(elapsed),
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                fontFeatures: [FontFeature.tabularFigures()],
-              ),
-            ),
-            const SizedBox(width: 6),
-            IconButton(
-              icon: const Icon(Icons.event_note,
-                  color: Colors.greenAccent, size: 20),
-              tooltip: 'Competiții',
-              constraints: const BoxConstraints(minHeight: 32, minWidth: 32),
-              padding: EdgeInsets.zero,
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const CompetitionsScreen(),
-                ),
-              ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.help_outline, color: Colors.white70, size: 20),
-              tooltip: 'Cum se folosește',
-              constraints: const BoxConstraints(minHeight: 32, minWidth: 32),
-              padding: EdgeInsets.zero,
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const GuideScreen(),
-                ),
-              ),
-            ),
-            const SizedBox(width: 4),
-            _StageControls(status: status),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
 }
 
 class _StageControls extends ConsumerWidget {
-  const _StageControls({required this.status});
+  const _StageControls({required this.status, this.compact = false});
 
   final StageStatus status;
+  final bool compact;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final inProgress = status == StageStatus.inProgress;
+    final gap = compact ? 4.0 : 6.0;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         IconButton(
-          icon: const Icon(Icons.settings, color: Colors.white70, size: 20),
+          icon: Icon(Icons.settings,
+              color: Colors.white70, size: compact ? 18 : 20),
           tooltip: 'Configurare stage',
-          constraints: const BoxConstraints(minHeight: 32, minWidth: 32),
+          constraints: BoxConstraints(
+              minHeight: compact ? 30 : 32, minWidth: compact ? 30 : 32),
           padding: EdgeInsets.zero,
           onPressed:
               inProgress ? null : () => _showConfigSheet(context, ref),
         ),
-        const SizedBox(width: 6),
+        SizedBox(width: gap),
         if (inProgress)
           _ControlButton(
             icon: Icons.stop,
             label: 'STOP',
             color: Colors.red,
             onTap: ref.read(stageControllerProvider.notifier).stopStage,
+            compact: compact,
           )
         else
           _ControlButton(
@@ -204,13 +256,15 @@ class _StageControls extends ConsumerWidget {
             label: 'START',
             color: Colors.green,
             onTap: ref.read(stageControllerProvider.notifier).startStage,
+            compact: compact,
           ),
-        const SizedBox(width: 6),
+        SizedBox(width: gap),
         _ControlButton(
           icon: Icons.refresh,
           label: 'RESET',
           color: Colors.white24,
           onTap: ref.read(stageControllerProvider.notifier).resetStage,
+          compact: compact,
         ),
       ],
     );
@@ -223,38 +277,45 @@ class _ControlButton extends StatelessWidget {
     required this.label,
     required this.color,
     required this.onTap,
+    this.compact = false,
   });
 
   final IconData icon;
   final String label;
   final Color color;
   final VoidCallback onTap;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
+    // Compact (narrow single-row): icon-only, so the whole top bar fits without
+    // overflow on a phone in a short/split-view window.
     return Material(
       color: color,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(compact ? 6 : 8),
       child: InkWell(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(compact ? 6 : 8),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, color: Colors.black, size: 16),
-              const SizedBox(width: 4),
-              Text(
-                label,
-                style: const TextStyle(
-                  color: Colors.black,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
+          padding: EdgeInsets.symmetric(
+              horizontal: compact ? 8 : 10, vertical: 6),
+          child: compact
+              ? Icon(icon, color: Colors.black, size: 18)
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(icon, color: Colors.black, size: 16),
+                    const SizedBox(width: 4),
+                    Text(
+                      label,
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
-          ),
         ),
       ),
     );
@@ -337,7 +398,7 @@ class _DeltaIndicator extends ConsumerWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '$name   ·   țintă ${target.toStringAsFixed(0)} / '
+                    '$name   ·   țintă ${_fmtSpeed(target)} / '
                     'viteza ${speed.toStringAsFixed(0)} km/h',
                     style: const TextStyle(color: Colors.white70, fontSize: 22),
                   ),
@@ -596,12 +657,14 @@ Future<void> _showConfigSheet(BuildContext context, WidgetRef ref) async {
             _NumberField(
               label: 'Viteză medie țintă (km/h)',
               value: target,
+              decimals: 1,
               onChanged: (v) => setState(() => target = v),
             ),
             const SizedBox(height: 16),
             _NumberField(
               label: 'Limită maximă (km/h)',
               value: maxLimit,
+              decimals: 1,
               onChanged: (v) => setState(() => maxLimit = v),
             ),
             const SizedBox(height: 24),
@@ -635,11 +698,13 @@ class _NumberField extends StatefulWidget {
     required this.label,
     required this.value,
     required this.onChanged,
+    this.decimals = 0,
   });
 
   final String label;
   final double value;
   final ValueChanged<double> onChanged;
+  final int decimals;
 
   @override
   State<_NumberField> createState() => _NumberFieldState();
@@ -651,7 +716,8 @@ class _NumberFieldState extends State<_NumberField> {
   @override
   void initState() {
     super.initState();
-    _controller = TextEditingController(text: widget.value.toStringAsFixed(0));
+    _controller =
+        TextEditingController(text: widget.value.toStringAsFixed(widget.decimals));
   }
 
   @override
@@ -662,6 +728,9 @@ class _NumberFieldState extends State<_NumberField> {
 
   @override
   Widget build(BuildContext context) {
+    final formatter = widget.decimals > 0
+        ? FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*$'))
+        : FilteringTextInputFormatter.digitsOnly;
     return Row(
       children: [
         Expanded(
@@ -672,10 +741,12 @@ class _NumberFieldState extends State<_NumberField> {
           width: 100,
           child: TextField(
             controller: _controller,
-            keyboardType: TextInputType.number,
+            keyboardType: widget.decimals > 0
+                ? const TextInputType.numberWithOptions(decimal: true)
+                : TextInputType.number,
             textAlign: TextAlign.center,
             style: const TextStyle(color: Colors.white, fontSize: 20),
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            inputFormatters: [formatter],
             decoration: const InputDecoration(
               enabledBorder: UnderlineInputBorder(
                 borderSide: BorderSide(color: Colors.white38),
@@ -706,3 +777,8 @@ String _formatDelta(double delta) {
   final sign = delta < 0 ? '-' : '+';
   return '$sign ${delta.abs().toStringAsFixed(1)}';
 }
+
+/// Speed display: whole numbers without a decimal (40), fractional with one
+/// (35.9) — so a target average entered as 35.9 shows as 35.9, not 36.
+String _fmtSpeed(double v) =>
+    v % 1 == 0 ? v.toStringAsFixed(0) : v.toStringAsFixed(1);

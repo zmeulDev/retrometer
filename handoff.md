@@ -1,6 +1,6 @@
 # Retrometer — Handoff implementare
 
-> Status: **implementat** (21 iun. 2026, actualizat 21 iun. 2026). `flutter analyze` curat, `flutter test` 28/28 pass.
+> Status: **implementat** (21 iun. 2026, actualizat 21 iun. 2026). `flutter analyze` curat (0 issues), `flutter test` 31/31 pass pe host. APK build-at și lansat pe device fizic **A059** (android-arm64, Android 16/API 36, serial `0014515BL000287`): orientare liberă (portrait↔landscape verificat prin rotație), viteze țintă/max cu zecimale în editorul de stagii și în cockpit (`țintă 35.9`). Geolocator pornit, profil instalat.
 > Mai jos: arhitectura realizată, devierea de la specificație, cum se rulează/testează, apoi **specificația originală** păstrată integral.
 
 ## Ce a fost implementat
@@ -35,11 +35,11 @@ Soluția adoptată: **provideri Riverpod scriși manual** (`Notifier`/`AsyncNoti
 - `lib/state_providers.dart` — `StageController` (`startStage`/`startStageFromPlan`/`stopStage`/`resetStage`/`updateConfig`/`adjustDistance`, acumulare distanță+viteză din GPS) + providerii `clockTick`, `elapsedSeconds`, `deltaSeconds`, `deltaBand`, `isOverSpeed`, `localityProvider` (reverse-geocode throttled la ~1 km cell) — toți cu `select` îngust. `startStageFromPlan` copiază noile câmpuri (end coords, rază, autoStop, distanță totală, timp alocat) în `StageConfig`. Listener-ul GPS (acum `async`) face **auto-stop**: după cel puțin 2 fix-uri (ca primul fix de la start să nu declanșeze), dacă `autoStop` și finish setat → `distanceBetween(pos, end)`; la `≤ endGeofenceRadiusM` → `stopStage()` + haptic.
 - `lib/competition_providers.dart` — `competitionsProvider` (`AsyncNotifier<List<Competition>>`, hidratat + persistat în `retrometer.competitions`; `addCompetition`/`updateCompetition`/`removeCompetition`/`addStage`/`updateStage`/`removeStage`/`markStarted(competitionId, stageId)`; la primul build, dacă lipsesc competițiile dar există vechiul `retrometer.schedule`, migrează stagii într-o competiție „Importate"). `activeCompetitionProvider` (găsește competiția căreia îi aparține stage-ul activ, după `config.id`). `ScheduledStage` = pereche `(Competition, PlannedStage)` pentru iterare flatten. `autoStartMonitorProvider` (`Notifier<AutoStartStatus>`, mutat aici din fostul `schedule_providers`): Timer 5s + tick imediat, doar când statusul `!= inProgress`; **flattenează** stage-urile din toate competițiile, caută cele due (`0 ≤ now − startTime ≤ 10 min`, `autoStart` true, `started` false), colectează cel mai precis fix GPS în 12s, verifică geofence-ul cu `distanceBetween ≤ geofenceRadiusM`, pornește stage-ul + `markStarted(competition.id, stage.id)`; ține wakelock cât timp e un stage pending.
 - `lib/competition_view.dart` — `CompetitionsScreen` (lista de competiții: tile cu nume, locație, dată, categorie, mașină, nr. stagii, loc general/categorie, + FAB add) → `CompetitionDetailScreen` (antet cu toate metadatele echipei/evenimentului + bara de status auto-start + lista de stagii sortate + edit/șterge competiție + FAB add stage). `_CompetitionEditor` (sheet) pentru toate câmpurile competiției (nume, locație, dată, pilot, copilot, mașină, categorie, total echipe, contact+telefon, cost, loc general/categorie). Editorul de stagii (`_StageEditor`/`_StageDraft`/`_StageTile`/`_showStageEditor`) e mutat aici din fostul `schedule_view` și primește `competitionId`; `markStarted`/`removeStage` operează pe competiția corectă. `_NumberField`/`_CoordField`/`_DateTimeField`/`_DateField` reutilizate.
-- `lib/cockpit_view.dart` — ecranul cockpit: 3 zone `Column` 15/45/40, `Consumer` atomici + `select` + `RepaintBoundary` pe zona Δ și pe distanță; gesture-uri blind-touch stânga/dreapta vizibile (`−10 m` / `+10 m`, tap `±0.01 km`, long-press `±0.1`) cu haptic; alertă over-speed pulsatorie; bara de sus cu localitate + **nume+categorie competiție activă** + elapsed + buton 📅 (competiții) + buton ajutor + controale stage; sheet de configurare (care acum păstrează finish/distanță/timpul prin `copyWith`, nu le mai dropează); `ref.watch(autoStartMonitorProvider)` ține monitorul viu.
+- `lib/cockpit_view.dart` — ecranul cockpit: 3 zone `Column` 15/45/40, `Consumer` atomici + `select` + `RepaintBoundary` pe zona Δ și pe distanță; gesture-uri blind-touch stânga/dreapta vizibile (`−10 m` / `+10 m`, tap `±0.01 km`, long-press `±0.1`) cu haptic; alertă over-speed pulsatorie; bara de sus cu localitate + **nume+categorie competiție activă** + elapsed + buton 📅 (competiții) + buton ajutor + controale stage; sheet de configurare (care acum păstrează finish/distanță/timpul prin `copyWith`, nu le mai dropează); `ref.watch(autoStartMonitorProvider)` ține monitorul viu. **Responsive:** bara de sus se rearanjează — pe ecran îngust + înalt (portrait telefon) devine 2 rânduri (info sus, controale jos, etichete păstrate); pe ecran îngust + scurt (split-view) rămâne 1 rând cu controale icon-only; pe lat rămâne 1 rând normal (`LayoutBuilder`, prag 520 px). Zonele Δ/distanță folosesc `FittedBox` deci scalaează pe orice dimensiune. Vitezele țintă/max se introduc cu zecimale (`_NumberField` cu `decimals: 1`) și se afișează cu o zecimală doar când e fracționar (`_fmtSpeed`: 40, 35.9).
 - `lib/guide_view.dart` — ghidul de utilizare (full-screen, scrollabil) cu mockup schematic + secțiuni (pornire, indicator Δ, calibrare borne, program stagii, altele) + `maybeShowOnboarding` (prima rulare, flag în SharedPreferences).
-- `lib/main.dart` — `ProviderScope`, `MaterialApp` dark, landscape preferred.
+- `lib/main.dart` — `ProviderScope`, `MaterialApp` dark. **Orientare liberă**: `setPreferredOrientations(DeviceOrientation.values)` — aplicabilă în portrait sau landscape, pe telefon sau tabletă (înainte forța landscape).
 - Permisiuni: `android/app/src/main/AndroidManifest.xml` (FINE/COARSE location, VIBRATE, WAKE_LOCK); `ios/Runner/Info.plist` (`NSLocationWhenInUseUsageDescription`). Fără background location (conform deciziei: doar foreground + wakelock).
-- `test/` — `rally_math_test.dart`, `state_providers_test.dart` (cu fake GPS/device; inclusiv auto-stop trage/nu trage), `competition_providers_test.dart` (auto-start in/out geofence, stage viitor, autoStart oprit, persistență competiții+stagii, **migrare legacy schedule**, **JSON round-trip metadate**), `widget_test.dart` (smoke).
+- `test/` — `rally_math_test.dart`, `state_providers_test.dart` (cu fake GPS/device; inclusiv auto-stop trage/nu trage), `competition_providers_test.dart` (auto-start in/out geofence, stage viitor, autoStart oprit, persistență competiții+stagii, **migrare legacy schedule**, **JSON round-trip metadate**), `widget_test.dart` (smoke landscape + **smoke portrait fără overflow** + **viteză țintă cu zecimale 35.9** + **40 curat, nu 40.0**).
 
 ### Matematica domeniului (în `lib/rally_math.dart`)
 
@@ -68,14 +68,16 @@ Soluția adoptată: **provideri Riverpod scriși manual** (`Notifier`/`AsyncNoti
 flutter pub get
 dart run build_runner build --delete-conflicting-outputs   # regenerează models.freezed.dart
 flutter analyze                                            # curat
-flutter test                                               # 28/28
-flutter run                                                # pe device fizic (GPS)
+flutter test                                               # 31/31
+flutter run -d 0014515BL000287                             # pe A059 (GPS)
+flutter test -d 0014515BL000287                            # 31/31 pe device fizic (opțional; rebuild-uiește harness-ul)
 ```
 
 > Notă: la `build_runner` poate apărea `E freezed on lib/state_providers.dart:` cu mesaj gol — eroare non-fatală (incompatibilitate SDK 3.10 vs analyzer 3.9; freezed nu are ce genera acolo). `models.freezed.dart` se regenerează corect; confirmat prin `flutter analyze` curat + teste pass.
 
 ### Verificare manuală rămasă (pe device fizic)
 
+- **[verificat pe A059]** Rotația telefonului portrait↔landscape rearanjează bara de sus (2 rânduri pe portrait, 1 rând pe lat) fără overflow; zonele Δ/distanță scalaează prin `FittedBox`. Viteza țintă introdusă cu zecimale (ex. 35.9) se afișează corect în cockpit; întregii rămân curați (40, nu 40.0).
 - Permite permisiunea de locație; ecranul rămâne aprins (wakelock).
 - Setează țintă 40 km/h, START; distanța/viteza se actualizează, Δ schimbă culoarea; localitatea apare sus.
 - Tap stânga/dreapta ⇒ ±0.01 km + haptic; long-press ⇒ ±0.1.
@@ -88,7 +90,7 @@ flutter run                                                # pe device fizic (GP
 
 ### Decizii confirmate
 
-Riverpod codegen + freezed · întârziere = galben · un singur stage activ configurabil din UI · doar foreground + wakelock (fără background location) · potrivire locație prin **geofence (coord + rază)** · **viteză țintă/max per stage** · programul de stagii **persistat** (plan dimineața, conduci mai târziu) · **locație finală cu geofence + auto-stop** la sosire · **distanță totală + timp total alocat** câmpuri introduse manual (independent, nu derivate) · **stagii grupate în competiții** (metadate echipaj/eveniment: pilot, copilot, nume, locație, total echipe, categorie, loc general/categorie, contact, cost, mașină) · **migrare automată** a vechiului schedule plat într-o competiție „Importate".
+Riverpod codegen + freezed · întârziere = galben · un singur stage activ configurabil din UI · doar foreground + wakelock (fără background location) · potrivire locație prin **geofence (coord + rază)** · **viteză țintă/max per stage, cu zecimale** (ex. 35.9, nu doar întregi) · programul de stagii **persistat** (plan dimineața, conduci mai târziu) · **locație finală cu geofence + auto-stop** la sosire · **distanță totală + timp total alocat** câmpuri introduse manual (independent, nu derivate) · **stagii grupate în competiții** (metadate echipaj/eveniment: pilot, copilot, nume, locație, total echipe, categorie, loc general/categorie, contact, cost, mașină) · **migrare automată** a vechiului schedule plat într-o competiție „Importate" · **orientare liberă** (portrait sau landscape) + **layout responsive** (bara de sus 2 rânduri pe portrait telefon, 1 rând pe lat; Δ/distanță scalaează prin `FittedBox`).
 
 ---
 
