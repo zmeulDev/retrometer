@@ -7,7 +7,6 @@ import '../theme/retrometer_theme.dart';
 import '../widgets/form_fields.dart';
 import '../widgets/info_widgets.dart';
 import '../widgets/cards.dart';
-import 'competition_detail_view.dart';
 import 'competition_editor.dart';
 
 // ---------------------------------------------------------------------------
@@ -18,7 +17,11 @@ import 'competition_editor.dart';
 /// stages). The auto-start monitor is kept alive from the cockpit; its
 /// diagnostics bar lives on the competition detail screen.
 class CompetitionsScreen extends ConsumerWidget {
-  const CompetitionsScreen({super.key});
+  const CompetitionsScreen({super.key, required this.onOpen});
+
+  /// Called when the crew taps a competition; the composition root switches to
+  /// that competition's detail in place.
+  final ValueChanged<String> onOpen;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -46,8 +49,10 @@ class CompetitionsScreen extends ConsumerWidget {
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 96),
               itemCount: competitions.length,
               separatorBuilder: (_, _) => const SizedBox(height: 10),
-              itemBuilder: (context, i) =>
-                  _CompetitionTile(competition: competitions[i]),
+              itemBuilder: (context, i) => _CompetitionTile(
+                competition: competitions[i],
+                onOpen: onOpen,
+              ),
             );
           },
           loading: () => const Center(child: CircularProgressIndicator()),
@@ -62,20 +67,17 @@ class CompetitionsScreen extends ConsumerWidget {
 }
 
 class _CompetitionTile extends StatelessWidget {
-  const _CompetitionTile({required this.competition});
+  const _CompetitionTile({required this.competition, required this.onOpen});
 
   final Competition competition;
+  final ValueChanged<String> onOpen;
 
   @override
   Widget build(BuildContext context) {
     final hasStandings =
         competition.overallStanding > 0 || competition.categoryStanding > 0;
     return TappableCard(
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => CompetitionDetailScreen(id: competition.id),
-        ),
-      ),
+      onTap: () => onOpen(competition.id),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
         child: Column(

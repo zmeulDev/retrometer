@@ -57,7 +57,7 @@ class CockpitTopBar extends ConsumerWidget {
                   compact: compact,
                   onPressed: () => Navigator.of(context).push(
                     MaterialPageRoute<void>(
-                      builder: (_) => const CompetitionsScreen(),
+                      builder: (_) => const CompetitionView(),
                     ),
                   ),
                 ),

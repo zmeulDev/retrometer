@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -328,19 +329,38 @@ class AutoStartMonitor extends Notifier<AutoStartStatus> {
     final all = ref.read(competitionsProvider).valueOrNull;
     final now = DateTime.now();
     if (all == null || all.isEmpty) {
+      debugPrint('[autostart] no competitions loaded');
       await device.disableWakelock();
       _setStatus('niciun stage programat', now: now);
       return;
     }
     final stages = competitions.flatten();
     if (stages.isEmpty) {
+      debugPrint('[autostart] no stages across competitions');
       await device.disableWakelock();
       _setStatus('niciun stage programat', now: now);
       return;
     }
     if (ref.read(stageControllerProvider).telemetry.status ==
         StageStatus.inProgress) {
+      debugPrint('[autostart] a stage is already inProgress — skip tick');
       return;
+    }
+    debugPrint(
+      '[autostart] tick now=$now stages=${stages.length} '
+      'evaluating per-stage conditions:',
+    );
+    for (final ss in stages) {
+      final s = ss.stage;
+      final delta = now.difference(s.startTime);
+      debugPrint(
+        '[autostart]   stage "${s.name}" (id=${s.id}) '
+        'autoStart=${s.autoStart} started=${s.started} '
+        'startTime=${s.startTime} delta=${delta.inSeconds}s '
+        '(${delta.isNegative ? "future" : "past"}) '
+        'graceOk=${!delta.isNegative && delta <= _autoStartGraceWindow} '
+        'lat=${s.latitude} lng=${s.longitude} radius=${s.geofenceRadiusM}m',
+      );
     }
 
     // Keep the screen awake while any stage is pending auto-start (wakelock is
@@ -367,6 +387,10 @@ class AutoStartMonitor extends Notifier<AutoStartStatus> {
       ..sort((a, b) => a.stage.startTime.compareTo(b.stage.startTime));
 
     if (due.isEmpty) {
+      debugPrint(
+        '[autostart] no due stages '
+        '(${pending.isEmpty ? "nothing pending" : "pending: ${pending.map((p) => p.stage.name).join(", ")}"})',
+      );
       final next = pending.isEmpty
           ? null
           : '${pending.first.stage.name} la ${_hm(pending.first.stage.startTime)}';
@@ -383,15 +407,19 @@ class AutoStartMonitor extends Notifier<AutoStartStatus> {
     }
 
     if (!await gps.isLocationServiceEnabled()) {
+      debugPrint('[autostart] GPS service disabled — abort tick');
       _setStatus('GPS dezactivat', now: now);
       return;
     }
     var permission = await gps.checkPermission();
+    debugPrint('[autostart] checkPermission=$permission');
     if (permission == LocationPermission.denied) {
       permission = await gps.requestPermission();
+      debugPrint('[autostart] after requestPermission=$permission');
     }
     if (permission == LocationPermission.denied ||
         permission == LocationPermission.deniedForever) {
+      debugPrint('[autostart] location permission refused — abort tick');
       _setStatus('permisiune locație refuzată', now: now);
       return;
     }
@@ -418,13 +446,19 @@ class AutoStartMonitor extends Notifier<AutoStartStatus> {
       // keep whatever fix we collected
     }
     if (best == null) {
+      debugPrint('[autostart] no GPS fix collected within 12s — abort tick');
       _setStatus('nu am primit fix GPS', now: now);
       return;
     }
+    debugPrint(
+      '[autostart] fix lat=${best.latitude} lng=${best.longitude} '
+      'accuracy=${bestAcc.toStringAsFixed(1)}m',
+    );
 
     for (final ss in due) {
       if (ref.read(stageControllerProvider).telemetry.status ==
           StageStatus.inProgress) {
+        debugPrint('[autostart] stage went inProgress mid-loop — stop');
         return;
       }
       final stage = ss.stage;
@@ -433,6 +467,11 @@ class AutoStartMonitor extends Notifier<AutoStartStatus> {
         startLongitude: best.longitude,
         endLatitude: stage.latitude,
         endLongitude: stage.longitude,
+      );
+      debugPrint(
+        '[autostart] due "${stage.name}" distance=${distance.toStringAsFixed(1)}m '
+        'vs radius=${stage.geofenceRadiusM}m '
+        'inGeofence=${distance <= stage.geofenceRadiusM}',
       );
       try {
         state = AutoStartStatus(
@@ -449,9 +488,17 @@ class AutoStartMonitor extends Notifier<AutoStartStatus> {
         // ignore
       }
       if (distance <= stage.geofenceRadiusM) {
+        debugPrint('[autostart] FIRING startStageFromPlan for "${stage.name}"');
         // StageController will (re)hold the wakelock for the running stage.
         await device.disableWakelock();
         await stageController.startStageFromPlan(stage);
+        final running =
+            ref.read(stageControllerProvider).telemetry.status ==
+                StageStatus.inProgress;
+        debugPrint(
+          '[autostart] after startStageFromPlan running=$running '
+          '— marking started',
+        );
         await competitions.markStarted(ss.competition.id, stage.id);
         return; // a stage is now running
       }

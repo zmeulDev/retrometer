@@ -16,15 +16,20 @@ import 'stage_editor.dart';
 // ---------------------------------------------------------------------------
 
 class CompetitionDetailScreen extends ConsumerWidget {
-  const CompetitionDetailScreen({super.key, required this.id});
+  const CompetitionDetailScreen({super.key, required this.id, required this.onBack});
 
   final String id;
+
+  /// Returns to the competition list. Provided by the composition root
+  /// (`CompetitionView`), which hosts list ↔ detail in a single route.
+  final VoidCallback onBack;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(competitionsProvider);
     return Scaffold(
       appBar: AppBar(
+        leading: BackButton(onPressed: onBack),
         title: const Text('Competiție'),
         actions: [
           IconButton(
@@ -49,7 +54,7 @@ class CompetitionDetailScreen extends ConsumerWidget {
               );
               if (confirmed) {
                 await ref.read(competitionsProvider.notifier).removeCompetition(id);
-                if (context.mounted) Navigator.of(context).pop();
+                if (context.mounted) onBack();
               }
             },
           ),
@@ -64,9 +69,10 @@ class CompetitionDetailScreen extends ConsumerWidget {
           data: (competitions) {
             final i = competitions.indexWhere((c) => c.id == id);
             if (i < 0) {
-              // Deleted — pop back to the list.
+              // Deleted — return to the list. Deferred to avoid calling the
+              // parent's setState (via onBack) during this build.
               WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (context.mounted) Navigator.of(context).pop();
+                if (context.mounted) onBack();
               });
               return const SizedBox.shrink();
             }
