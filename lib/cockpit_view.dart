@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'about_view.dart';
 import 'competition_providers.dart';
 import 'competition_view.dart';
 import 'guide_view.dart';
+import 'location_disclosure.dart';
 import 'models.dart';
 import 'state_providers.dart';
 import 'theme/retrometer_theme.dart';
@@ -181,6 +183,20 @@ class _TopInfoBar extends ConsumerWidget {
               ),
             ),
           );
+          final aboutBtn = IconButton(
+            icon: Icon(Icons.info_outline,
+                color: RetrometerColors.textSecondary,
+                size: compact ? 18 : 20),
+            tooltip: 'Despre aplicație',
+            constraints: BoxConstraints(
+                minHeight: compact ? 30 : 32, minWidth: compact ? 30 : 32),
+            padding: EdgeInsets.zero,
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const AboutScreen(),
+              ),
+            ),
+          );
 
           if (twoRows) {
             return _topBarSurface(
@@ -196,6 +212,7 @@ class _TopInfoBar extends ConsumerWidget {
                       const SizedBox(width: 4),
                       competitionsBtn,
                       helpBtn,
+                      aboutBtn,
                     ],
                   ),
                   const SizedBox(height: 2),
@@ -218,6 +235,7 @@ class _TopInfoBar extends ConsumerWidget {
                 SizedBox(width: compact ? 4 : 6),
                 competitionsBtn,
                 helpBtn,
+                aboutBtn,
                 SizedBox(width: compact ? 2 : 4),
                 _StageControls(status: status, compact: compact),
               ],
@@ -267,7 +285,12 @@ class _StageControls extends ConsumerWidget {
             icon: Icons.play_arrow,
             label: 'START',
             color: RetrometerColors.startFill,
-            onTap: ref.read(stageControllerProvider.notifier).startStage,
+            onTap: () async {
+              // Prominent location disclosure must precede the permission
+              // request; abort the stage start if the user declines it.
+              if (!await maybeShowLocationDisclosure(context)) return;
+              ref.read(stageControllerProvider.notifier).startStage();
+            },
             compact: compact,
           ),
         SizedBox(width: gap),

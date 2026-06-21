@@ -5,6 +5,7 @@ import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 
 import 'competition_providers.dart';
+import 'location_disclosure.dart';
 import 'models.dart';
 import 'services/gps_service.dart';
 import 'state_providers.dart';
@@ -1208,6 +1209,7 @@ class _StageEditorState extends State<_StageEditor> {
   void _useCurrentLocation() async {
     final container = ProviderScope.containerOf(context, listen: false);
     final gps = container.read(gpsServiceProvider);
+    if (!await maybeShowLocationDisclosure(context)) return;
     if (!await gps.isLocationServiceEnabled()) return;
     var perm = await gps.checkPermission();
     if (perm == LocationPermission.denied) {
@@ -1259,6 +1261,7 @@ class _StageEditorState extends State<_StageEditor> {
   void _useCurrentEndLocation() async {
     final container = ProviderScope.containerOf(context, listen: false);
     final gps = container.read(gpsServiceProvider);
+    if (!await maybeShowLocationDisclosure(context)) return;
     if (!await gps.isLocationServiceEnabled()) return;
     var perm = await gps.checkPermission();
     if (perm == LocationPermission.denied) {

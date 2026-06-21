@@ -52,6 +52,12 @@ dependencies:
   # First-run onboarding flag.
   shared_preferences: ^2.3.2
 
+  # App metadata (name, package, version, build) for the About screen.
+  package_info_plus: ^10.1.0
+
+  # Open the privacy policy URL from the location disclosure dialog.
+  url_launcher: ^6.3.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
