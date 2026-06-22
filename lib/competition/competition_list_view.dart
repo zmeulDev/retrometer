@@ -37,13 +37,13 @@ class CompetitionsScreen extends ConsumerWidget {
         child: async.when(
           data: (competitions) {
             if (competitions.isEmpty) {
-              return const EmptyState(
+              return EmptyState(
                 icon: Icons.emoji_events,
                 iconSize: 64,
                 message: 'Nicio competiție.\n'
                     'Apasă + ca să adaugi prima competiție (nume, locație, piloți, '
                     'mașină, categorie), apoi îi adaugi stagii.',
-                titleStyle: RetrometerTextStyles.emptyTitle,
+                titleStyle: context.text.emptyTitle,
               );
             }
             return ListView.separated(
@@ -59,7 +59,7 @@ class CompetitionsScreen extends ConsumerWidget {
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(
             child: Text('Eroare: $e',
-                style: const TextStyle(color: RetrometerColors.textPrimary)),
+                style: TextStyle(color: context.colors.textPrimary)),
           ),
         ),
       ),
@@ -79,14 +79,14 @@ class _CompetitionTile extends StatelessWidget {
         competition.overallStanding > 0 || competition.categoryStanding > 0;
     return MetadataTile(
       onTap: () => onOpen(competition.id),
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      padding: const EdgeInsets.fromLTRB(RetrometerSpacing.s16, RetrometerSpacing.s12, RetrometerSpacing.s16, RetrometerSpacing.s12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.emoji_events,
-                  color: RetrometerColors.primary, size: 20),
+              Icon(Icons.emoji_events,
+                  color: context.colors.primary, size: 20),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -95,7 +95,7 @@ class _CompetitionTile extends StatelessWidget {
                       : competition.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: RetrometerTextStyles.tileTitle,
+                  style: context.text.tileTitle,
                 ),
               ),
               if (hasStandings)
@@ -137,7 +137,7 @@ class _CompetitionTile extends StatelessWidget {
             ].join(' · '),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: RetrometerTextStyles.meta,
+            style: context.text.meta,
           ),
         ],
       ),
@@ -156,6 +156,6 @@ class _StandingBadge extends StatelessWidget {
     final text = overall > 0 && category > 0
         ? '${two(overall)} / ${two(category)}'
         : two(overall > 0 ? overall : category);
-    return StatusPill(text: 'loc $text', color: RetrometerColors.primary);
+    return StatusPill(text: 'loc $text', color: context.colors.primary);
   }
 }

@@ -87,3 +87,30 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  # Bundled fonts (offline; no google_fonts at runtime). Digits use Roboto Mono
+  # (fixed-width + tabular figures, has `+ - . :`), labels/titles use Saira
+  # Stencil One (restomod signature, Latin Extended for RO diacritics), body/UI
+  # use Roboto. All three ship under the SIL Open Font License 1.1 — texts in
+  # assets/fonts/licenses/ and exposed in the About screen.
+  fonts:
+    - family: Roboto
+      fonts:
+        - asset: assets/fonts/Roboto-Regular.ttf
+        - asset: assets/fonts/Roboto-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Roboto-Bold.ttf
+          weight: 700
+    - family: RobotoMono
+      fonts:
+        - asset: assets/fonts/RobotoMono-Regular.ttf
+        - asset: assets/fonts/RobotoMono-Bold.ttf
+          weight: 700
+    - family: SairaStencil
+      fonts:
+        - asset: assets/fonts/SairaStencilOne-Regular.ttf
+
+  # License texts for the bundled fonts (read by the About → Open-source
+  # licenses screen via rootBundle).
+  assets:
+    - assets/fonts/licenses/

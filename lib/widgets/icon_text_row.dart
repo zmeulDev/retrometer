@@ -46,7 +46,7 @@ class IconTextRow extends StatelessWidget {
     final content = Row(
       crossAxisAlignment: crossAxisAlignment,
       children: [
-        Icon(icon, color: iconColor ?? RetrometerColors.textSecondary, size: iconSize),
+        Icon(icon, color: iconColor ?? context.colors.textSecondary, size: iconSize),
         SizedBox(width: gap),
         Expanded(
           child: Text(
@@ -66,12 +66,12 @@ class IconTextRow extends StatelessWidget {
       );
     }
     return TappableCard(
-      color: RetrometerColors.surface,
-      radius: 10,
+      color: context.colors.surface,
+      radius: RetrometerRadii.chip,
       border: BorderSide.none,
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: RetrometerSpacing.s16, vertical: 14),
         child: content,
       ),
     );
@@ -97,11 +97,11 @@ class ListActionRow extends StatelessWidget {
     return IconTextRow(
       icon: icon,
       text: label,
-      iconColor: RetrometerColors.primary,
-      style: RetrometerTextStyles.meta,
+      iconColor: context.colors.primary,
+      style: context.text.meta,
       onTap: onTap,
-      trailing: const Icon(Icons.chevron_right,
-          color: RetrometerColors.textSecondary, size: 22),
+      trailing: Icon(Icons.chevron_right,
+          color: context.colors.textSecondary, size: 22),
     );
   }
 }

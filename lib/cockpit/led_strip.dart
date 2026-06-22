@@ -1,0 +1,106 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../competition_providers.dart';
+import '../models.dart';
+import '../state_providers.dart';
+import '../theme/retrometer_theme.dart';
+
+/// A fixed-height restomod status strip: flat LED dots + stencil labels for
+/// GPS · STAGE · OVER-SPD · AUTO-START, lit from live cockpit state. Placed
+/// above the three cockpit zones in [CockpitView]; its fixed height keeps the
+/// `Expanded` zones below it flexing correctly (no landscape overflow).
+class LedStrip extends ConsumerWidget {
+  const LedStrip({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final status = ref.watch(
+      stageControllerProvider.select((s) => s.telemetry.status),
+    );
+    final overSpeed = ref.watch(isOverSpeedProvider);
+    final autoStatus = ref.watch(autoStartMonitorProvider);
+
+    final gpsLit = status == StageStatus.inProgress;
+    final stageLit = status != StageStatus.idle;
+    final overLit = overSpeed;
+    // Auto-start LED lights when a stage is armed and waiting for its trigger
+    // (pending prompt or a scheduled stage due soon).
+    final autoLit = autoStatus.pendingPrompt != null ||
+        (autoStatus.nextDueName != null && autoStatus.nextDueName!.isNotEmpty);
+
+    return SizedBox(
+      height: 22,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+        child: Row(
+          children: [
+            _Led(
+              label: 'GPS',
+              on: gpsLit,
+              onColor: context.colors.primary,
+            ),
+            const SizedBox(width: 12),
+            _Led(
+              label: 'STAGE',
+              on: stageLit,
+              onColor: context.colors.running,
+            ),
+            const SizedBox(width: 12),
+            _Led(
+              label: 'OVER-SPD',
+              on: overLit,
+              onColor: context.colors.danger,
+            ),
+            const Spacer(),
+            _Led(
+              label: 'AUTO-START',
+              on: autoLit,
+              onColor: context.colors.warn,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A single LED: a flat dot + stencil label, dim when off and tinted when on.
+class _Led extends StatelessWidget {
+  const _Led({required this.label, required this.on, required this.onColor});
+
+  final String label;
+  final bool on;
+  final Color onColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    final dotColor = on ? onColor : colors.dividerStrong;
+    final ink = on ? colors.textPrimary : colors.textFaint;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 7,
+          height: 7,
+          decoration: BoxDecoration(
+            color: dotColor,
+            shape: BoxShape.circle,
+            border: Border.all(color: dotColor, width: 1),
+          ),
+        ),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: TextStyle(
+            fontFamily: 'SairaStencil',
+            fontSize: 9,
+            letterSpacing: 0.6,
+            color: ink,
+          ),
+        ),
+      ],
+    );
+  }
+}

@@ -47,43 +47,43 @@ class _LocationDisclosureDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return RetrometerAlertDialog(
-      icon: Icon(Icons.location_on, color: RetrometerColors.primary, size: 32),
+      icon: Icon(Icons.location_on, color: context.colors.primary, size: 32),
       title: 'Acces la locație',
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
+          children: [
             Text(
               'Retrometer folosește datele de locație (GPS) pentru a calcula '
               'distanța parcursă, viteza și indicatorul Δ în timpul raliului de '
               'regularitate:',
               style: TextStyle(
-                  color: RetrometerColors.textSecondary, height: 1.4),
+                  color: context.colors.textSecondary, height: 1.4),
             ),
-            SizedBox(height: 12),
-            _Bullet(Icons.straighten, 'Distanța și viteza curentă a stage-ului.'),
-            _Bullet(Icons.my_location, 'Geofence de start / sosire pentru '
+            const SizedBox(height: 12),
+            const _Bullet(Icons.straighten, 'Distanța și viteza curentă a stage-ului.'),
+            const _Bullet(Icons.my_location, 'Geofence de start / sosire pentru '
                 'pornirea și oprirea automată a stagii­lor.'),
-            _Bullet(Icons.place, 'Afișarea localității curente pe bord.'),
-            SizedBox(height: 12),
+            const _Bullet(Icons.place, 'Afișarea localității curente pe bord.'),
+            const SizedBox(height: 12),
             Text(
               'Locația este folosită doar cât timp aplicația este deschisă '
               '(prim-plan) și NU este colectată, transmisă sau vândută către '
               'terți.',
               style: TextStyle(
-                  color: RetrometerColors.textSecondary, height: 1.4),
+                  color: context.colors.textSecondary, height: 1.4),
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             Text(
               'Accesul la locație este opțional: îl poți refuza, dar atunci '
               'funcțiile de raliu (distanță, viteză, indicator Δ, auto-start/stop) '
               'nu sunt disponibile. Restul aplicației rămâne funcțională.',
               style: TextStyle(
-                  color: RetrometerColors.textSecondary, height: 1.4),
+                  color: context.colors.textSecondary, height: 1.4),
             ),
-            SizedBox(height: 12),
-            _PrivacyPolicyLink(),
+            const SizedBox(height: 12),
+            const _PrivacyPolicyLink(),
           ],
         ),
       ),
@@ -112,11 +112,11 @@ class _Bullet extends StatelessWidget {
     return IconTextRow(
       icon: icon,
       text: text,
-      iconColor: RetrometerColors.primary,
+      iconColor: context.colors.primary,
       iconSize: 18,
       gap: 10,
-      style: const TextStyle(
-        color: RetrometerColors.textSecondary,
+      style: TextStyle(
+        color: context.colors.textSecondary,
         height: 1.35,
       ),
       verticalPadding: 4,
@@ -138,19 +138,19 @@ class _PrivacyPolicyLink extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: _open,
-      borderRadius: BorderRadius.circular(6),
+      borderRadius: BorderRadius.circular(RetrometerRadii.pill),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 2),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.open_in_new,
-                color: RetrometerColors.primary, size: 16),
+                color: context.colors.primary, size: 16),
             const SizedBox(width: 6),
             Text(
               'Vezi Politica de confidențialitate',
               style: TextStyle(
-                color: RetrometerColors.primary,
+                color: context.colors.primary,
                 decoration: TextDecoration.underline,
                 fontSize: 13,
               ),

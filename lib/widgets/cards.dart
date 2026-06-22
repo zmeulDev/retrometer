@@ -15,7 +15,7 @@ class TappableCard extends StatelessWidget {
     this.onTap,
     required this.child,
     this.color,
-    this.radius = 14,
+    this.radius = RetrometerRadii.card,
     this.border,
   });
 
@@ -28,9 +28,9 @@ class TappableCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final side = border ?? const BorderSide(color: RetrometerColors.divider);
+    final side = border ?? BorderSide(color: context.colors.divider);
     return Material(
-      color: color ?? RetrometerColors.surface,
+      color: color ?? context.colors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(radius),
         side: side,
@@ -54,7 +54,7 @@ class SurfaceCard extends StatelessWidget {
     super.key,
     required this.child,
     this.color,
-    this.radius = 14,
+    this.radius = RetrometerRadii.card,
     this.border,
     this.alignment,
     this.padding,
@@ -69,7 +69,7 @@ class SurfaceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final side = border ?? const BorderSide(color: RetrometerColors.divider);
+    final side = border ?? BorderSide(color: context.colors.divider);
     Widget content = child;
     if (padding != null) {
       content = Padding(padding: padding!, child: content);
@@ -78,7 +78,7 @@ class SurfaceCard extends StatelessWidget {
       content = Align(alignment: alignment!, child: content);
     }
     return Material(
-      color: color ?? RetrometerColors.surface,
+      color: color ?? context.colors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(radius),
         side: side,

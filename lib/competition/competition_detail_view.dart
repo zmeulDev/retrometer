@@ -35,7 +35,7 @@ class CompetitionDetailScreen extends ConsumerWidget {
         title: const Text('Competiție'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.edit, color: RetrometerColors.primary),
+            icon: Icon(Icons.edit, color: context.colors.primary),
             tooltip: 'Editează competiția',
             onPressed: () async {
               final comp = async.valueOrNull
@@ -45,8 +45,8 @@ class CompetitionDetailScreen extends ConsumerWidget {
             },
           ),
           IconButton(
-            icon: const Icon(Icons.delete_outline,
-                color: RetrometerColors.danger),
+            icon: Icon(Icons.delete_outline,
+                color: context.colors.danger),
             tooltip: 'Șterge competiția',
             onPressed: () async {
               final confirmed = await confirmDialog(
@@ -137,7 +137,7 @@ class CompetitionDetailScreen extends ConsumerWidget {
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(
             child: Text('Eroare: $e',
-                style: const TextStyle(color: RetrometerColors.textPrimary)),
+                style: TextStyle(color: context.colors.textPrimary)),
           ),
         ),
       ),
@@ -218,9 +218,9 @@ class _CompetitionHeader extends StatelessWidget {
     }
     return Container(
       width: double.infinity,
-      decoration: const BoxDecoration(
-        color: RetrometerColors.surfaceHeader,
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
+      decoration: BoxDecoration(
+        color: context.colors.surfaceHeader,
+        borderRadius: BorderRadius.vertical(bottom: const Radius.circular(RetrometerRadii.card)),
       ),
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
       child: Column(
@@ -230,7 +230,7 @@ class _CompetitionHeader extends StatelessWidget {
             competition.name.isEmpty ? '(fără nume)' : competition.name,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: RetrometerTextStyles.headerTitle,
+            style: context.text.headerTitle,
           ),
           const SizedBox(height: 8),
           Wrap(
@@ -280,14 +280,14 @@ class _MonitorStatusBar extends ConsumerWidget {
     }
     return Container(
       width: double.infinity,
-      color: RetrometerColors.surfaceHeader,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      color: context.colors.surfaceHeader,
+      padding: const EdgeInsets.symmetric(horizontal: RetrometerSpacing.s12, vertical: RetrometerSpacing.s8),
       child: Text(
         parts.join('   ·   '),
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
-        style: const TextStyle(
-            color: RetrometerColors.primary, fontSize: 13),
+        style: TextStyle(
+            color: context.colors.primary, fontSize: 13),
       ),
     );
   }
@@ -328,13 +328,13 @@ class _StageTile extends ConsumerWidget {
     final Color statusColor;
     if (isRunning) {
       statusLabel = 'ÎN CURS';
-      statusColor = RetrometerColors.running;
+      statusColor = context.colors.running;
     } else if (stage.started) {
       statusLabel = 'PORNIT';
-      statusColor = RetrometerColors.started;
+      statusColor = context.colors.started;
     } else {
       statusLabel = 'ÎN AȘTEPTARE';
-      statusColor = RetrometerColors.waiting;
+      statusColor = context.colors.waiting;
     }
 
     return MetadataTile(
@@ -347,8 +347,8 @@ class _StageTile extends ConsumerWidget {
           const SizedBox(height: 8),
           if (!isRunning)
             IconButton(
-              icon: const Icon(Icons.play_arrow,
-                  color: RetrometerColors.startFill),
+              icon: Icon(Icons.play_arrow,
+                  color: context.colors.startFill),
               tooltip: 'Pornește acum',
               constraints: const BoxConstraints(
                   minHeight: 32, minWidth: 32),
@@ -361,8 +361,8 @@ class _StageTile extends ConsumerWidget {
                       .markStarted(competitionId, stage.id)),
             ),
           IconButton(
-            icon: const Icon(Icons.delete_outline,
-                color: RetrometerColors.danger),
+            icon: Icon(Icons.delete_outline,
+                color: context.colors.danger),
             tooltip: 'Șterge',
             constraints:
                 const BoxConstraints(minHeight: 32, minWidth: 32),
@@ -380,13 +380,13 @@ class _StageTile extends ConsumerWidget {
             stage.name,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: RetrometerTextStyles.tileTitle,
+            style: context.text.tileTitle,
           ),
           const SizedBox(height: 6),
           InfoLine(
             icon: Icons.schedule,
             text: formatDateTime(stage.startTime),
-            textStyle: RetrometerTextStyles.tileTime,
+            textStyle: context.text.tileTime,
           ),
           const SizedBox(height: 4),
           InfoLine(
@@ -399,7 +399,7 @@ class _StageTile extends ConsumerWidget {
             'țintă ${fmtSpeed(stage.targetAvgSpeed)} / '
             'max ${fmtSpeed(stage.maxSpeedLimit)} km/h'
             '${stage.autoStart ? ' · auto-start' : ' · manual'}',
-            style: RetrometerTextStyles.metaMuted,
+            style: context.text.metaMuted,
           ),
           if (stage.result != null) ...[
             const SizedBox(height: 4),
@@ -408,7 +408,7 @@ class _StageTile extends ConsumerWidget {
               text: 'rezultat: max ${fmtSpeed(stage.result!.maxSpeedKmh)} / '
                   'min ${stage.result!.minSpeedKmh == null ? '—' : fmtSpeed(stage.result!.minSpeedKmh!)} / '
                   'med ${fmtSpeed(stage.result!.avgSpeedKmh)} km/h',
-              iconColor: RetrometerColors.primary,
+              iconColor: context.colors.primary,
             ),
           ],
           if (stage.endLatitude != null && stage.endLongitude != null) ...[
@@ -430,7 +430,7 @@ class _StageTile extends ConsumerWidget {
                 if (stage.allocatedTimeSeconds > 0)
                   'timp ${formatElapsed(stage.allocatedTimeSeconds)}',
               ].join(' · '),
-              style: RetrometerTextStyles.metaMuted,
+              style: context.text.metaMuted,
             ),
           ],
         ],
@@ -451,7 +451,7 @@ class _HistoryHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(4, 12, 4, 2),
-      child: Text('Istoric etape', style: RetrometerTextStyles.headerTitle),
+      child: Text('Istoric etape', style: context.text.headerTitle),
     );
   }
 }
@@ -475,7 +475,7 @@ class _HistoryTile extends StatelessWidget {
             entry.stageName,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: RetrometerTextStyles.tileTitle,
+            style: context.text.tileTitle,
           ),
           if (entry.competitionName.isNotEmpty) ...[
             const SizedBox(height: 2),
@@ -483,7 +483,7 @@ class _HistoryTile extends StatelessWidget {
               entry.competitionName,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: RetrometerTextStyles.metaMuted,
+              style: context.text.metaMuted,
             ),
           ],
           const SizedBox(height: 6),
@@ -522,7 +522,7 @@ class _HistoryTile extends StatelessWidget {
               '${entry.totalDistanceKm.toStringAsFixed(2)} km',
               'timp ${formatElapsed(entry.elapsedSeconds)}',
             ].join(' · '),
-            style: RetrometerTextStyles.metaMuted,
+            style: context.text.metaMuted,
           ),
         ],
       ),

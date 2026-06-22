@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="ro" data-theme="night" data-accent="amber" data-band="ontime">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Retrometer — Concept 3 · Restomod (refined)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Saira+Stencil+One&family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --r-sm:3px; --r-md:6px; --r-lg:10px;
+  --font-lcd7:'Roboto Mono','Courier New',monospace;
+  --font-lcd14:'Roboto Mono','Courier New',monospace;
+  --font-stencil:'Saira Stencil One','Roboto',sans-serif;
+  --font-ui:'Roboto',system-ui,sans-serif;
+  --font-mono:'Roboto Mono','Courier New',monospace;
+}
+/* retro warm palette */
+[data-theme="night"]{
+  --bg:#161210; --surface:#1d1916; --surface2:#251f1a;
+  --ink:#efe6d6; --ink-dim:#a99d88; --ink-faint:#6b6052;
+  --line:#3a3128; --line-strong:#4f4337;
+  --lcd-bg:#0c0a07;
+  --accent-ink:#1a0f04;
+}
+[data-theme="day"]{
+  --bg:#f1ead9; --surface:#fbf6e9; --surface2:#ece3cd;
+  --ink:#221b12; --ink-dim:#6f6452; --ink-faint:#a99d88;
+  --line:#d8ccb2; --line-strong:#bdae90;
+  --lcd-bg:#e7dcc2;
+  --accent-ink:#1a0f04;
+}
+[data-accent="amber"]{ --lcd:#ff9b21; --signal:#e08612; --lcd-soft:rgba(255,155,33,.16); }
+[data-accent="red"]  { --lcd:#e8533f; --signal:#c33b29; --lcd-soft:rgba(232,83,63,.16); }
+[data-accent="teal"] { --lcd:#41c9a0; --signal:#34a98a; --lcd-soft:rgba(65,201,160,.16); }
+
+[data-band="ontime"] { --band-fg:var(--lcd); --band-mark:var(--lcd); }
+[data-band="advance"]{ --band-fg:#e8533f; --band-mark:#e8533f; }
+[data-band="delay"]  { --band-fg:#e8b53f; --band-mark:#e8b53f; }
+
+[data-theme="night"]{ --danger:#e8533f; --warn:#e8b53f; }
+[data-theme="day"]  { --danger:#b8392b; --warn:#8a6510; }
+
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:var(--font-ui); color:var(--ink); background:var(--bg);
+  min-height:100%; display:flex; flex-direction:column; align-items:center;
+  padding:36px 20px 52px; gap:26px; letter-spacing:.02em;
+  transition:background .3s,color .3s;
+}
+/* faint paper / metal grain — flat, no shadow */
+body::before{
+  content:""; position:fixed; inset:0; pointer-events:none; opacity:.5; z-index:0;
+  background:
+    repeating-linear-gradient(0deg, rgba(0,0,0,.018) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(90deg, rgba(0,0,0,.018) 0 1px, transparent 1px 3px);
+}
+body > *{position:relative;z-index:1}
+
+/* ── console ── */
+.console{
+  width:min(720px,100%); display:flex; flex-wrap:wrap; gap:14px;
+  align-items:center; justify-content:center; padding:12px 16px;
+  background:var(--surface); border:1px solid var(--line);
+  border-radius:var(--r-md); color:var(--ink-dim);
+  font-size:11px; text-transform:uppercase; letter-spacing:.14em;
+}
+.console b{color:var(--ink);font-weight:700}
+.console .group{display:flex;align-items:center;gap:6px}
+.console button{
+  font-family:var(--font-ui);font-size:10px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.12em;
+  padding:6px 10px;border-radius:var(--r-sm);
+  background:transparent;color:var(--ink-dim);
+  border:1px solid var(--line);cursor:pointer;transition:all .15s;
+}
+.console button:hover{color:var(--ink);border-color:var(--line-strong)}
+.console button.active{color:var(--signal);border-color:var(--signal);background:var(--lcd-soft)}
+
+/* ── dash — double-rule gauge bezel, flat ── */
+.dash{
+  width:min(560px,100%); background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:var(--r-lg);
+  padding:6px;
+}
+.dash-inner{
+  border:1px solid var(--line-strong);
+  border-radius:calc(var(--r-lg) - 3px);
+  overflow:hidden;
+}
+
+/* status strip — retro badge row */
+.status{
+  display:flex; align-items:center; gap:16px;
+  padding:8px 14px; border-bottom:1px solid var(--line);
+  font-family:var(--font-stencil); font-size:11px; letter-spacing:.12em;
+  color:var(--ink-faint); text-transform:uppercase;
+}
+.status .led{display:inline-flex;align-items:center;gap:6px}
+.status .dot{width:7px;height:7px;border-radius:50%;background:var(--line-strong);border:1px solid var(--line-strong)}
+.status .led.on .dot{background:var(--lcd);border-color:var(--lcd)}
+.status .led.danger.on .dot{background:var(--danger);border-color:var(--danger);animation:pulse 1.1s infinite}
+.status .led.warn.on .dot{background:var(--warn);border-color:var(--warn)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.status .ver{margin-left:auto;font-family:var(--font-mono);font-size:10px;letter-spacing:.1em}
+
+/* ── top bar ── */
+.top{display:grid;grid-template-columns:1fr auto;gap:12px;padding:16px;border-bottom:1px solid var(--line)}
+.top-left{display:flex;flex-direction:column;gap:9px;min-width:0}
+.comp{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.12em}
+.comp .tag{font-family:var(--font-stencil);color:var(--signal);font-size:13px;letter-spacing:.08em}
+.comp .name{color:var(--ink);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.clock{display:flex;align-items:baseline;gap:10px}
+.clock .place{font-family:var(--font-stencil);font-size:15px;color:var(--ink);letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:170px}
+.clock .sep{color:var(--ink-faint)}
+.clock .el{font-family:var(--font-lcd7);font-size:30px;line-height:1;color:var(--lcd)}
+[data-theme="day"] .clock .el{color:#1a0f04}
+.top-right{display:flex;gap:8px;align-items:center}
+.ico{
+  width:36px;height:36px;display:inline-flex;align-items:center;justify-content:center;
+  border:1px solid var(--line-strong); border-radius:50%; color:var(--ink-dim);
+  background:var(--surface2); cursor:pointer; font-size:14px;
+  transition:border-color .15s,color .15s;
+}
+.ico:hover{border-color:var(--signal);color:var(--signal)}
+
+/* ── Δ — retro gauge: tick ring + stencil label + LCD num ── */
+.delta{
+  position:relative;padding:30px 18px 24px;text-align:center;
+  border-bottom:1px solid var(--line);overflow:hidden;
+  transition:background-color .2s ease;
+}
+.delta::before{content:"";position:absolute;top:0;left:50%;transform:translateX(-50%);width:60px;height:3px;background:var(--band-mark);transition:height .2s,opacity .2s}
+
+/* LA TIMP — calm, steady (no flash) */
+[data-band="ontime"] .delta{ background-color:transparent; }
+
+/* AVANS / ÎNTÂRZIERE — full-zone hard flash to grab attention */
+[data-band="advance"] .delta{ animation:flashAdvance .7s steps(1,end) infinite; }
+[data-band="advance"] .delta::before{ animation:markPulse .7s ease-in-out infinite; background:#e8533f; }
+[data-band="delay"] .delta{ animation:flashDelay .7s steps(1,end) infinite; }
+[data-band="delay"] .delta::before{ animation:markPulse .7s ease-in-out infinite; background:#e8b53f; }
+/* strong alert flash: bright wash for first part, then dim, hard cut at loop */
+@keyframes flashAdvance{
+  0%,28%   { background-color: rgba(232,83,63,.40); }
+  29%,100% { background-color: rgba(232,83,63,.05); }
+}
+@keyframes flashDelay{
+  0%,28%   { background-color: rgba(232,179,63,.42); }
+  29%,100% { background-color: rgba(232,179,63,.05); }
+}
+@keyframes markPulse{
+  0%,28%   { opacity:1; height:8px; }
+  29%,100% { opacity:.35; height:3px; }
+}
+/* the digits keep their bright band color so the value stays readable through the flash */
+[data-theme="night"] [data-band="advance"] .delta .num,
+[data-theme="night"] [data-band="delay"]   .delta .num{ text-shadow:0 0 18px currentColor; }
+@media (prefers-reduced-motion: reduce){
+  [data-band="advance"] .delta,
+  [data-band="delay"]   .delta,
+  [data-band="advance"] .delta::before,
+  [data-band="delay"]   .delta::before{ animation:none; }
+  [data-band="advance"] .delta{ background-color: rgba(232,83,63,.22); }
+  [data-band="delay"]   .delta{ background-color: rgba(232,179,63,.24); }
+}
+/* tick marks across the top — analog gauge flavor, flat */
+.ticks{position:absolute;top:14px;left:16px;right:16px;height:8px;display:flex;justify-content:space-between;align-items:flex-end}
+.ticks i{width:1px;background:var(--line-strong);display:block}
+.ticks i:nth-child(odd){height:8px}
+.ticks i:nth-child(even){height:4px;opacity:.6}
+.delta .label{font-family:var(--font-stencil);font-size:22px;letter-spacing:.1em;color:var(--band-fg);margin-top:10px}
+.delta .num{font-family:var(--font-lcd7);font-size:112px;line-height:.88;color:var(--band-fg);margin-top:6px}
+.delta .sub{font-family:var(--font-mono);font-size:12px;color:var(--ink-dim);margin-top:8px;letter-spacing:.04em}
+.delta .stage{font-family:var(--font-stencil);font-size:18px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink);margin-top:8px}
+.overspeed{
+  display:none;margin:0 0 8px;align-items:center;justify-content:center;gap:8px;
+  padding:7px 10px;border:1px solid var(--danger);
+  color:var(--danger);font-family:var(--font-stencil);font-weight:400;letter-spacing:.12em;font-size:13px;text-transform:uppercase;
+  animation:blink .6s infinite;
+}
+.overspeed.show{display:flex}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.45}}
+
+/* ── tripmeter — knurled-knob adjusters, flat (concentric rings) ── */
+.trip{display:grid;grid-template-columns:1fr 1.5fr 1fr}
+.trip > div{padding:18px 10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+.knob{cursor:pointer;user-select:none;border-right:1px solid var(--line);transition:background .12s}
+.knob:last-child{border-right:none;border-left:1px solid var(--line)}
+.knob:hover{background:var(--surface2)}
+.knob:active{background:var(--lcd-soft)}
+.knob .ring{
+  width:64px;height:64px;border-radius:50%;
+  border:1px solid var(--line-strong);
+  background:
+    repeating-conic-gradient(var(--line) 0deg 6deg, transparent 6deg 12deg),
+    var(--surface2);
+  display:flex;align-items:center;justify-content:center;
+  position:relative;
+}
+.knob .ring::before{content:"";position:absolute;inset:6px;border-radius:50%;border:1px solid var(--line)}
+.knob .sign{font-family:var(--font-lcd7);font-size:30px;line-height:1;color:var(--ink)}
+.knob .amt{font-family:var(--font-stencil);font-size:12px;letter-spacing:.06em;color:var(--ink-dim);margin-top:4px}
+.knob .lng{font-size:9px;letter-spacing:.14em;color:var(--ink-faint);text-transform:uppercase}
+.dist{background:var(--lcd-bg)}
+.dist .km{font-family:var(--font-lcd7);font-size:74px;line-height:.88;color:var(--lcd)}
+[data-theme="day"] .dist .km{color:#1a0f04}
+.dist .unit{font-family:var(--font-stencil);font-size:13px;letter-spacing:.12em;color:var(--ink-dim)}
+
+/* tabular digits for the Roboto Mono readouts (fixed-width) */
+.clock .el,.delta .num,.knob .sign,.dist .km{font-variant-numeric:tabular-nums;font-feature-settings:'tnum'}
+/* .ghost kept as a harmless no-op (was a 7-seg artifact; dropped with DSEG) */
+.ghost{position:relative;display:inline-block}
+.ghost > span{position:relative;z-index:1}
+
+/* ── secondary previews ── */
+.previews{width:min(1100px,100%);display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px}
+.prev{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:6px;overflow:hidden}
+.prev-inner{border:1px solid var(--line-strong);border-radius:calc(var(--r-lg) - 3px)}
+.prev-head{font-family:var(--font-stencil);font-size:11px;letter-spacing:.08em;color:var(--ink-faint);text-align:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.prev-screen{padding:14px}
+.appbar{display:flex;align-items:center;gap:10px;padding-bottom:12px;border-bottom:1px solid var(--line);margin-bottom:12px}
+.appbar .title{font-family:var(--font-stencil);font-size:16px;letter-spacing:.04em;color:var(--ink);flex:1}
+.appbar .ico{color:var(--ink-dim);font-size:14px;cursor:pointer}
+.tile{display:flex;align-items:flex-start;gap:10px;padding:12px;border:1px solid var(--line);border-radius:var(--r-md);margin-bottom:10px;background:var(--surface)}
+.tile .body{flex:1;min-width:0}
+.tile .ttl{font-family:var(--font-stencil);font-size:15px;color:var(--ink);letter-spacing:.02em}
+.tile .meta{font-size:10px;color:var(--ink-dim);margin-top:5px;display:flex;gap:10px;flex-wrap:wrap;letter-spacing:.04em}
+.pill{font-family:var(--font-stencil);font-size:10px;letter-spacing:.06em;padding:3px 8px;border-radius:999px;text-transform:uppercase;border:1px solid}
+.pill.run{color:var(--signal);border-color:var(--signal);background:var(--lcd-soft)}
+.pill.wait{color:var(--warn);border-color:var(--warn);background:color-mix(in srgb,var(--warn) 12%,transparent)}
+.pill.done{color:var(--ink-faint);border-color:var(--line)}
+.tile .trailing{display:flex;flex-direction:column;gap:6px;align-items:flex-end}
+.tile .mini{color:var(--ink-faint);font-size:14px;cursor:pointer}
+.result{font-family:var(--font-mono);font-size:10px;color:var(--ink-dim);margin-top:6px}
+.result b{color:var(--signal)}
+
+.dialog{width:240px;background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--r-md);padding:18px;margin:24px auto}
+.dialog .dt{font-family:var(--font-stencil);font-size:16px;color:var(--ink);margin-bottom:8px;letter-spacing:.04em}
+.dialog .dc{font-size:12px;color:var(--ink-dim);line-height:1.5;margin-bottom:14px}
+.dialog .dc b{color:var(--signal)}
+.dialog .row{display:flex;gap:8px;justify-content:flex-end}
+.btn{font-family:var(--font-ui);font-weight:700;letter-spacing:.1em;font-size:11px;padding:7px 14px;border-radius:var(--r-sm);border:1px solid var(--line-strong);background:transparent;color:var(--ink-dim);cursor:pointer;text-transform:uppercase}
+.btn:hover{color:var(--ink);border-color:var(--ink-faint)}
+.btn.go{color:var(--accent-ink);border-color:var(--signal);background:var(--signal)}
+
+.spec{width:min(1100px,100%);display:flex;flex-wrap:wrap;gap:24px;padding:18px;border:1px solid var(--line);border-radius:var(--r-lg);color:var(--ink-dim);font-size:12px;background:var(--surface)}
+.spec b{color:var(--ink)}
+.spec .item{flex:1;min-width:200px}
+.spec h4{font-family:var(--font-stencil);font-size:12px;letter-spacing:.08em;color:var(--signal);margin-bottom:6px;font-weight:400}
+</style>
+</head>
+<body>
+
+<div class="console">
+  <div class="group"><b>Tema</b>
+    <button data-set="theme" data-val="night" class="active">Night</button>
+    <button data-set="theme" data-val="day">Day</button>
+  </div>
+  <div class="group"><b>Accent</b>
+    <button data-set="accent" data-val="amber" class="active">Amber</button>
+    <button data-set="accent" data-val="red">Red</button>
+    <button data-set="accent" data-val="teal">Teal</button>
+  </div>
+  <div class="group"><b>Δ</b>
+    <button data-set="band" data-val="ontime" class="active">La timp</button>
+    <button data-set="band" data-val="advance">Avans</button>
+    <button data-set="band" data-val="delay">Întârziere</button>
+  </div>
+  <div class="group"><b>LED</b>
+    <button id="overspeedToggle">⚠ Over-spd</button>
+    <button id="gpsToggle" class="active">GPS</button>
+  </div>
+</div>
+
+<div class="dash">
+  <div class="dash-inner">
+    <div class="status">
+      <span class="led on" id="ledGps"><span class="dot"></span>GPS</span>
+      <span class="led on"><span class="dot"></span>Stage</span>
+      <span class="led danger" id="ledOver"><span class="dot"></span>Over-Spd</span>
+      <span class="led warn"><span class="dot"></span>Auto-Start</span>
+      <span class="ver">RETROMETER · v1.0</span>
+    </div>
+
+    <div class="top">
+      <div class="top-left">
+        <div class="comp"><span class="tag">Cupa Z3</span><span class="name">Cls. Regularitate</span></div>
+        <div class="clock">
+          <span class="place">Sibiu — Păltiniș</span>
+          <span class="sep">/</span>
+          <span class="el ghost"><span id="elapsed">00:42</span></span>
+        </div>
+      </div>
+      <div class="top-right">
+        <button class="ico">📅</button>
+        <button class="ico">ℹ</button>
+        <button class="ico">⚙</button>
+      </div>
+    </div>
+
+    <div class="delta">
+      <div class="ticks" id="ticks"></div>
+      <div class="overspeed" id="overspeed">⚠ Over Speed</div>
+      <div class="label" id="bandLabel">LA TIMP</div>
+      <div class="num ghost"><span id="deltaNum">+0.0</span></div>
+      <div class="sub" id="deltaSub">țintă 40 · reală 40 · acum 41 km/h</div>
+      <div class="stage">SS2 — Păltiniș</div>
+    </div>
+
+    <div class="trip">
+      <div class="knob" id="adjMinus">
+        <span class="ring"><span class="sign">−</span></span>
+        <span class="amt">10 m</span>
+        <span class="lng">lung: 100 m</span>
+      </div>
+      <div class="dist">
+        <span class="km ghost"><span id="km">14.56</span></span>
+        <span class="unit">km</span>
+      </div>
+      <div class="knob" id="adjPlus">
+        <span class="ring"><span class="sign">+</span></span>
+        <span class="amt">10 m</span>
+        <span class="lng">lung: 100 m</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="previews">
+  <div class="prev"><div class="prev-inner">
+    <div class="prev-head">Ecran · Competiții</div>
+    <div class="prev-screen">
+      <div class="appbar"><span class="title">Competiții</span><span class="ico">⋮</span></div>
+      <div class="tile"><div class="body"><div class="ttl">Cupa Z3 · Regularitate</div><div class="meta"><span>📍 Sibiu</span><span>🏎 Z3 2.8</span><span>🏁 6 etape</span></div></div><div class="trailing"><span class="pill run">În cursă</span></div></div>
+      <div class="tile"><div class="body"><div class="ttl">Raliul Brașovului</div><div class="meta"><span>📍 Brașov</span><span>🏁 4 etape</span></div></div><div class="trailing"><span class="pill wait">Programat</span></div></div>
+      <div class="tile"><div class="body"><div class="ttl">Importate</div><div class="meta"><span>🏁 2 etape</span></div></div><div class="trailing"><span class="pill done">Finalizat</span></div></div>
+    </div>
+  </div></div>
+  <div class="prev"><div class="prev-inner">
+    <div class="prev-head">Ecran · Detaliu</div>
+    <div class="prev-screen">
+      <div class="appbar"><span class="ico">‹</span><span class="title">Cupa Z3</span><span class="ico">✎</span><span class="ico">🗑</span></div>
+      <div class="tile"><div class="body"><div class="ttl">SS2 — Păltiniș</div><div class="meta"><span>🕐 14:30</span><span>📍 200m</span></div><div class="meta"><span>țintă 40 · max 70</span><span>6.4 km · 09:30</span></div><div class="result"><b>rezultat:</b> max 68 / min 0 / med 41 km/h</div></div><div class="trailing"><span class="pill done">Finalizat</span><span class="mini">▶</span><span class="mini">🗑</span></div></div>
+      <div class="tile"><div class="body"><div class="ttl">SS3 — Râșnov</div><div class="meta"><span>🕐 15:45</span><span>📍 200m</span><span>țintă 45 · max 70</span></div></div><div class="trailing"><span class="pill wait">Așteptare</span><span class="mini">▶</span></div></div>
+    </div>
+  </div></div>
+  <div class="prev"><div class="prev-inner">
+    <div class="prev-head">Dialog · Auto-start</div>
+    <div class="prev-screen" style="display:flex;align-items:center;justify-content:center;min-height:280px;background:color-mix(in srgb,var(--ink) 6%,transparent)">
+      <div class="dialog">
+        <div class="dt">Pornire stage</div>
+        <div class="dc">„SS2 — Păltiniș" — la ora <b>14:30</b>. Doriți să porniți?</div>
+        <div class="row"><button class="btn">Nu</button><button class="btn go">Da</button></div>
+      </div>
+    </div>
+  </div></div>
+</div>
+
+<div class="spec">
+  <div class="item"><h4>Direcție</h4><b>Restomod</b> — retro rally (amber LCD, stencil race-numerals, knurled knobs, double-rule gauge bezel, tick marks) executat flat/modern: zero umbre, hairline, spațiere curată.</div>
+  <div class="item"><h4>Alertă Δ (rafinat)</h4><b>AVANS / ÎNTÂRZIERE</b> = toată zona Δ flash-uri hard (wash saturat + bara de accent pulse), 0.7s, ca să atragă atenția la 100%. <b>LA TIMP</b> = calm, steady, fără flash. Cifrele rămân lizibile (culoare bandă + glow noapte).</div>
+  <div class="item"><h4>Tipografie</h4><b>DSEG7</b> cifre LCD · <b>Saira Stencil One</b> labeluri/race-numerals · <b>Oxanium</b> UI modern. Retro+modern în aceeași pagină.</div>
+  <div class="item"><h4>Paletă</h4>Warm: night = char-coal #161210 + crem + amber; day = bone #f1ead9 + ink + amber. Accent: amber (retro) / red / teal.</div>
+  <div class="item"><h4>Detalii retro</h4>Knobs knurled (conic-gradient plat), tick-marks gauge, dublă ramă, stencil pe titluri/badge-uri — toate flat, fără glow.</div>
+</div>
+
+<script>
+// build tick marks
+const ticks=document.getElementById('ticks');
+for(let i=0;i<41;i++){const t=document.createElement('i');ticks.appendChild(t);}
+
+const root=document.documentElement;
+document.querySelectorAll('.console [data-set]').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll(`[data-set="${b.dataset.set}"]`).forEach(x=>x.classList.remove('active'));
+    b.classList.add('active'); root.dataset[b.dataset.set]=b.dataset.val; updateBand();
+  });
+});
+const L={ontime:'LA TIMP',advance:'AVANS',delay:'ÎNTÂRZIERE'};
+const N={ontime:'+0.0',advance:'-12.4',delay:'+08.6'};
+const S={ontime:'țintă 40 · reală 40 · acum 41 km/h',advance:'țintă 40 · reală 44 · acum 58 km/h',delay:'țintă 40 · reală 36 · acum 33 km/h'};
+function updateBand(){const b=root.dataset.band;document.getElementById('bandLabel').textContent=L[b];document.getElementById('deltaNum').textContent=N[b];document.getElementById('deltaSub').textContent=S[b];}
+updateBand();
+const osBtn=document.getElementById('overspeedToggle'),os=document.getElementById('overspeed'),ledOver=document.getElementById('ledOver');
+osBtn.addEventListener('click',()=>{const on=os.classList.toggle('show');ledOver.classList.toggle('on',on);osBtn.classList.toggle('active',on);});
+const gpsBtn=document.getElementById('gpsToggle'),ledGps=document.getElementById('ledGps');
+gpsBtn.addEventListener('click',()=>{const on=ledGps.classList.toggle('on');gpsBtn.classList.toggle('active',on);});
+let km=14.56;const kmEl=document.getElementById('km');
+document.getElementById('adjPlus').addEventListener('click',()=>{km=Math.min(99.99,km+0.01);kmEl.textContent=km.toFixed(2);});
+document.getElementById('adjMinus').addEventListener('click',()=>{km=Math.max(0,km-0.01);kmEl.textContent=km.toFixed(2);});
+let secs=42;const el=document.getElementById('elapsed');
+setInterval(()=>{secs++;el.textContent=String(Math.floor(secs/60)).padStart(2,'0')+':'+String(secs%60).padStart(2,'0');},1000);
+</script>
+</body>
+</html>

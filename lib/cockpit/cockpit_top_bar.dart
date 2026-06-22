@@ -59,7 +59,7 @@ class CockpitTopBar extends ConsumerWidget {
                 Expanded(child: _CompetitionLabel(competition: competition)),
                 CompactIconButton(
                   icon: Icons.event_note,
-                  color: RetrometerColors.primary,
+                  color: context.colors.primary,
                   tooltip: 'Competiții',
                   compact: compact,
                   onPressed: () => Navigator.of(context).push(
@@ -70,7 +70,7 @@ class CockpitTopBar extends ConsumerWidget {
                 ),
                 CompactIconButton(
                   icon: Icons.info_outline,
-                  color: RetrometerColors.textSecondary,
+                  color: context.colors.textSecondary,
                   tooltip: 'Despre aplicație',
                   compact: compact,
                   onPressed: () => Navigator.of(context).push(
@@ -104,13 +104,13 @@ class StageControls extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final inProgress = status == StageStatus.inProgress;
-    final gap = compact ? 6.0 : 10.0;
+    final gap = compact ? 6.0 : 8.0;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         CompactIconButton(
           icon: Icons.settings,
-          color: RetrometerColors.textSecondary,
+          color: context.colors.textSecondary,
           tooltip: 'Configurare stage',
           compact: compact,
           expandedIconSize: 22,
@@ -123,7 +123,7 @@ class StageControls extends ConsumerWidget {
           ControlButton(
             icon: Icons.stop,
             label: 'STOP',
-            color: RetrometerColors.stopFill,
+            color: context.colors.stopFill,
             onTap: ref.read(stageControllerProvider.notifier).stopStage,
             compact: compact,
           )
@@ -131,7 +131,7 @@ class StageControls extends ConsumerWidget {
           ControlButton(
             icon: Icons.play_arrow,
             label: 'START',
-            color: RetrometerColors.startFill,
+            color: context.colors.startFill,
             onTap: () async {
               // Prominent location disclosure must precede the permission
               // request; abort the stage start if the user declines it.
@@ -144,8 +144,8 @@ class StageControls extends ConsumerWidget {
         ControlButton(
           icon: Icons.refresh,
           label: 'RESET',
-          color: RetrometerColors.resetFill,
-          foreground: RetrometerColors.textPrimary,
+          color: context.colors.resetFill,
+          foreground: context.colors.textPrimary,
           onTap: ref.read(stageControllerProvider.notifier).resetStage,
           compact: compact,
         ),
@@ -178,15 +178,15 @@ class ControlButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fg = foreground ?? RetrometerColors.onActionFill;
+    final fg = foreground ?? context.colors.onActionFill;
     return TappableCard(
       color: color,
-      radius: compact ? 12 : 14,
+      radius: compact ? RetrometerRadii.control : RetrometerRadii.card,
       border: BorderSide.none,
       onTap: onTap,
       child: Padding(
         padding: EdgeInsets.symmetric(
-            horizontal: compact ? 10 : 16, vertical: compact ? 7 : 10),
+            horizontal: compact ? 10 : 13, vertical: compact ? 7 : 10),
         child: compact
             ? Icon(icon, color: fg, size: 20)
             : Row(
@@ -196,7 +196,7 @@ class ControlButton extends StatelessWidget {
                   const SizedBox(width: 6),
                   Text(
                     label,
-                    style: RetrometerTextStyles.controlLabel
+                    style: context.text.controlLabel
                         .copyWith(color: fg, fontSize: 15),
                   ),
                 ],
@@ -250,8 +250,7 @@ class _CompetitionLabel extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Icon(Icons.emoji_events,
-            color: RetrometerColors.primary, size: 15),
+        Icon(Icons.emoji_events, color: context.colors.primary, size: 15),
         const SizedBox(width: 6),
         Flexible(
           child: Text(
@@ -261,7 +260,7 @@ class _CompetitionLabel extends StatelessWidget {
             ].join(' · '),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: RetrometerTextStyles.competitionRow,
+            style: context.text.competitionRow,
           ),
         ),
       ],
@@ -302,15 +301,15 @@ class _CardBody extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.location_on,
-                        color: RetrometerColors.primary, size: 18),
+                    Icon(Icons.location_on,
+                        color: context.colors.primary, size: 18),
                     const SizedBox(width: 6),
                     Flexible(
                       child: Text(
                         locality,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: RetrometerTextStyles.topBarText(),
+                        style: context.text.topBarText(),
                       ),
                     ),
                   ],
@@ -318,7 +317,7 @@ class _CardBody extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(
                   formatElapsed(elapsed),
-                  style: RetrometerTextStyles.topBarElapsed,
+                  style: context.text.topBarElapsed,
                 ),
               ],
             ),

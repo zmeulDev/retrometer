@@ -26,13 +26,13 @@ class EditorSheetScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     return Padding(
-      padding: EdgeInsets.fromLTRB(20, 8, 20, 20 + bottomInset),
+      padding: EdgeInsets.fromLTRB(20, RetrometerSpacing.s8, 20, 20 + bottomInset),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(title, style: RetrometerTextStyles.sheetTitle),
+            Text(title, style: context.text.sheetTitle),
             const SizedBox(height: 16),
             ...children,
             if (onSave != null) ...[
@@ -58,7 +58,7 @@ class SectionTitle extends StatelessWidget {
     this.text, {
     super.key,
     this.style,
-    this.bottomPadding = 8,
+    this.bottomPadding = RetrometerSpacing.s8,
   });
 
   final String text;
@@ -69,7 +69,7 @@ class SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: EdgeInsets.only(bottom: bottomPadding),
-      child: Text(text, style: style ?? RetrometerTextStyles.sectionLabel),
+      child: Text(text, style: style ?? context.text.sectionLabel),
     );
   }
 }

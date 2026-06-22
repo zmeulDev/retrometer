@@ -84,7 +84,7 @@ class _AutoStartPromptListenerState
         content: Text('Doriți să porniți "${next.stage.name}"?'),
         actions: [
           TextButton(
-            style: TextButton.styleFrom(foregroundColor: RetrometerColors.danger),
+            style: TextButton.styleFrom(foregroundColor: dialogContext.colors.danger),
             onPressed: () {
               ref.read(autoStartMonitorProvider.notifier).dismissPending();
               Navigator.of(dialogContext).pop(false);
@@ -92,7 +92,7 @@ class _AutoStartPromptListenerState
             child: const Text('Nu'),
           ),
           TextButton(
-            style: TextButton.styleFrom(foregroundColor: RetrometerColors.primary),
+            style: TextButton.styleFrom(foregroundColor: dialogContext.colors.primary),
             onPressed: () async {
               // Prominent location disclosure must precede the permission
               // request; if the crew declines, treat the prompt as declined.

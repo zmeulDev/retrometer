@@ -8,6 +8,7 @@ import 'guide_view.dart';
 import 'location_disclosure.dart';
 import 'services/gps_service.dart';
 import 'theme/retrometer_theme.dart';
+import 'theme/theme_mode_provider.dart';
 import 'widgets/icon_text_row.dart';
 import 'widgets/info_widgets.dart';
 
@@ -67,6 +68,22 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                     ),
                   ),
                 ),
+                const SizedBox(height: 12),
+                ListActionRow(
+                  icon: Icons.brightness_3_outlined,
+                  label: 'Temă: Zi/Noapte',
+                  onTap: () => ref.read(themeModeProvider.notifier).toggle(),
+                ),
+                const SizedBox(height: 12),
+                ListActionRow(
+                  icon: Icons.description_outlined,
+                  label: 'Licențe open-source',
+                  onTap: () => showLicensePage(
+                    context: context,
+                    applicationName: 'Retrometer',
+                    applicationVersion: version,
+                  ),
+                ),
               ],
             );
           },
@@ -124,14 +141,16 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen> {
       appBar: AppBar(title: const Text('Permisiuni')),
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+          padding: const EdgeInsets.fromLTRB(
+              RetrometerSpacing.s16, RetrometerSpacing.s16,
+              RetrometerSpacing.s16, RetrometerSpacing.s32),
           children: [
             Text(
               'Retrometer folosește următoarele permisiuni. Locația este '
               'verificată în timp real; vibrația și ecranul aprins sunt '
               'permisiuni normale, acordate automat la instalare.',
               style: TextStyle(
-                color: RetrometerColors.textSecondary,
+                color: context.colors.textSecondary,
                 fontSize: 14,
                 height: 1.4,
               ),
@@ -141,7 +160,7 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen> {
               future: _locationStatus,
               builder: (context, snap) {
                 final status = snap.data ??
-                    const _PermStatus('Se verifică…', RetrometerColors.textMuted);
+                    _PermStatus('Se verifică…', context.colors.textMuted);
                 return _PermissionRow(
                   icon: Icons.location_on,
                   name: 'Locație (GPS)',
@@ -150,18 +169,18 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen> {
                 );
               },
             ),
-            const _PermissionRow(
+            _PermissionRow(
               icon: Icons.vibration,
               name: 'Vibrație',
               purpose: 'Feedback haptic la ajustări și auto-start/stop.',
-              status: _PermStatus('Acordată', RetrometerColors.primary),
+              status: _PermStatus('Acordată', context.colors.primary),
               note: 'Permisiune normală — acordată la instalare.',
             ),
-            const _PermissionRow(
+            _PermissionRow(
               icon: Icons.lightbulb_outline,
               name: 'Ecran aprins',
               purpose: 'Ține ecranul activ cât durează un stage.',
-              status: _PermStatus('Acordată', RetrometerColors.primary),
+              status: _PermStatus('Acordată', context.colors.primary),
               note: 'Permisiune normală — acordată la instalare.',
             ),
           ],
@@ -192,26 +211,26 @@ class _AppHeader extends StatelessWidget {
           width: 88,
           height: 88,
           decoration: BoxDecoration(
-            color: RetrometerColors.surfaceElevated,
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: RetrometerColors.divider, width: 1),
+            color: context.colors.surfaceElevated,
+            borderRadius: BorderRadius.circular(RetrometerRadii.appIcon),
+            border: Border.all(color: context.colors.divider, width: 1),
           ),
           child: loading
-              ? const Padding(
-                  padding: EdgeInsets.all(20),
+              ? Padding(
+                  padding: const EdgeInsets.all(20),
                   child: CircularProgressIndicator(
                     strokeWidth: 2.5,
-                    color: RetrometerColors.primary,
+                    color: context.colors.primary,
                   ),
                 )
               : Icon(Icons.directions_car_filled,
-                  color: RetrometerColors.primary, size: 46),
+                  color: context.colors.primary, size: 46),
         ),
         const SizedBox(height: 14),
-        Text('Retrometer', style: RetrometerTextStyles.headerTitle),
+        Text('Retrometer', style: context.text.headerTitle),
         const SizedBox(height: 4),
         Text('Rally Computer · trip-meter',
-            style: RetrometerTextStyles.metaMuted),
+            style: context.text.metaMuted),
       ],
     );
   }
@@ -225,18 +244,19 @@ class _VersionBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(
+          horizontal: RetrometerSpacing.s16, vertical: RetrometerSpacing.s12),
       decoration: BoxDecoration(
-        color: RetrometerColors.primary.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: RetrometerColors.primary, width: 1),
+        color: context.colors.primary.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(RetrometerRadii.chip),
+        border: Border.all(color: context.colors.primary, width: 1),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.verified, color: RetrometerColors.primary, size: 18),
+          Icon(Icons.verified, color: context.colors.primary, size: 18),
           const SizedBox(width: 8),
-          Text('Versiune $version', style: RetrometerTextStyles.metaStrong),
+          Text('Versiune $version', style: context.text.metaStrong),
         ],
       ),
     );
@@ -265,7 +285,7 @@ class _PermissionRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: RetrometerColors.textSecondary, size: 22),
+          Icon(icon, color: context.colors.textSecondary, size: 22),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -274,7 +294,7 @@ class _PermissionRow extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: Text(name, style: RetrometerTextStyles.metaStrong),
+                      child: Text(name, style: context.text.metaStrong),
                     ),
                     StatusPill(text: status.label, color: status.color),
                   ],
@@ -282,7 +302,7 @@ class _PermissionRow extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(purpose,
                     style: TextStyle(
-                      color: RetrometerColors.textSecondary,
+                      color: context.colors.textSecondary,
                       fontSize: 13,
                       height: 1.35,
                     )),
@@ -290,7 +310,7 @@ class _PermissionRow extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(note!,
                       style: TextStyle(
-                        color: RetrometerColors.textMuted,
+                        color: context.colors.textMuted,
                         fontSize: 12,
                         height: 1.3,
                       )),

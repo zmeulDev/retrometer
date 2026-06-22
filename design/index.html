@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="ro" data-theme="night" data-accent="teal" data-band="ontime">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Retrometer — Rally Dash Concept</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@400;500;600;700;800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+/* ─────────────────────────────────────────────────────────────
+   DSEG — 7/14-segment LCD fonts (keshikan/DSEG, OFL) via jsDelivr
+   ───────────────────────────────────────────────────────────── */
+@font-face {
+  font-family: 'DSEG7';
+  src: url('https://cdn.jsdelivr.net/gh/keshikan/DSEG@master/DSEG_Web/DSEG7-Classic/DSEG7-Classic.woff2') format('woff2'),
+       url('https://cdn.jsdelivr.net/gh/keshikan/DSEG@master/DSEG_Web/DSEG7-Classic/DSEG7-Classic.woff') format('woff');
+  font-weight: normal; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'DSEG14';
+  src: url('https://cdn.jsdelivr.net/gh/keshikan/DSEG@master/DSEG_Web/DSEG14-Classic/DSEG14-Classic.woff2') format('woff2'),
+       url('https://cdn.jsdelivr.net/gh/keshikan/DSEG@master/DSEG_Web/DSEG14-Classic/DSEG14-Classic.woff') format('woff');
+  font-weight: normal; font-style: normal; font-display: swap;
+}
+
+/* ════════════════════════════════════════════════════════════
+   TOKENS
+   ════════════════════════════════════════════════════════════ */
+:root{
+  --r-sm:6px; --r-md:10px; --r-lg:14px; --r-xl:22px; --r-pill:999px;
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:24px; --sp-6:32px;
+  --font-lcd7:'DSEG7', 'Share Tech Mono', monospace;
+  --font-lcd14:'DSEG14', 'Share Tech Mono', monospace;
+  --font-ui:'Oxanium', 'Share Tech Mono', system-ui, sans-serif;
+  --font-mono:'Share Tech Mono', monospace;
+}
+
+/* ── Night (backlit LCD) ── */
+[data-theme="night"]{
+  --bezel:        #1a1c20;
+  --bezel-hi:     #2a2d33;
+  --bezel-lo:     #050608;
+  --panel:        #0b0e10;
+  --panel-recess: #070a0b;
+  --lcd-bg:       #08100d;
+  --lcd-bg-2:     #0c1612;
+  --frame:        #15191c;
+  --chrome:       #20242a;
+  --chrome-hi:    #2b3037;
+
+  --ink:          #e8f3ee;
+  --ink-dim:      #8a9893;
+  --ink-faint:    #4d5854;
+
+  --label-plate:  #1d2126;
+  --label-ink:    #7e8a85;
+
+  --led-off:      #11221b;
+}
+/* ── Day (reflective LCD) ── */
+[data-theme="day"]{
+  --bezel:        #d2d6d9;
+  --bezel-hi:     #eef1f3;
+  --bezel-lo:     #9aa0a4;
+  --panel:        #e9ece7;
+  --panel-recess: #d6ddd2;
+  --lcd-bg:       #b9c9b0;
+  --lcd-bg-2:     #aebfa4;
+  --frame:        #c4cac3;
+  --chrome:       #cfd4c9;
+  --chrome-hi:    #e3e7dd;
+
+  --ink:          #11231a;
+  --ink-dim:      #404c44;
+  --ink-faint:    #6a756c;
+
+  --label-plate:  #d6ddd0;
+  --label-ink:    #5a6660;
+
+  --led-off:      #c2cfb8;
+}
+
+/* ── LCD accent (the lit segments) ── */
+[data-accent="teal"]  { --lcd:#41dfb4; --lcd-soft:rgba(65,223,180,.18); --lcd-glow:rgba(65,223,180,.55); --signal:#41dfb4; }
+[data-accent="green"] { --lcd:#3df070; --lcd-soft:rgba(61,240,112,.18); --lcd-glow:rgba(61,240,112,.5);  --signal:#3df070; }
+[data-accent="amber"] { --lcd:#ffb000; --lcd-soft:rgba(255,176,0,.18);  --lcd-glow:rgba(255,176,0,.5);   --signal:#ffb000; }
+
+/* Δ band states */
+[data-band="ontime"]  { --band-bg:linear-gradient(180deg,#0e4d38,#08100d); --band-fg:var(--lcd); --band-border:var(--lcd-soft); }
+[data-band="advance"] { --band-bg:linear-gradient(180deg,#5e0d0d,#160404); --band-fg:#ff6b6b; --band-border:rgba(255,107,107,.3); }
+[data-band="delay"]   { --band-bg:linear-gradient(180deg,#5a3a05,#160f02); --band-fg:#ffd24a; --band-border:rgba(255,210,74,.3); }
+[data-theme="day"][data-band="ontime"]  { --band-bg:linear-gradient(180deg,#9fc8ad,#b9c9b0); --band-fg:#0e4d38; }
+[data-theme="day"][data-band="advance"] { --band-bg:linear-gradient(180deg,#d8b0b0,#cbbdbd); --band-fg:#7a1414; }
+[data-theme="day"][data-band="delay"]   { --band-bg:linear-gradient(180deg,#e2cf9a,#d6cfa8); --band-fg:#6e4a05; }
+
+/* danger / warning LEDs stay constant-ish per theme */
+[data-theme="night"]{ --danger:#ff5252; --warn:#ffee58; --danger-glow:rgba(255,82,82,.6); }
+[data-theme="day"]  { --danger:#c0202a; --warn:#9a7b00; --danger-glow:rgba(192,32,42,.25); }
+
+/* ════════════════════════════════════════════════════════════
+   BASE
+   ════════════════════════════════════════════════════════════ */
+*{box-sizing:border-box; margin:0; padding:0;}
+html,body{height:100%;}
+body{
+  font-family:var(--font-ui);
+  background:
+    radial-gradient(1200px 700px at 50% -10%, var(--bezel-hi), transparent 70%),
+    repeating-linear-gradient(45deg, var(--bezel) 0 2px, var(--bezel-lo) 2px 4px),
+    var(--bezel-lo);
+  color:var(--ink);
+  min-height:100%;
+  display:flex; flex-direction:column; align-items:center;
+  padding:var(--sp-5) var(--sp-4) var(--sp-6);
+  gap:var(--sp-5);
+  transition:background .4s ease;
+  letter-spacing:.02em;
+}
+
+/* ════════════════════════════════════════════════════════════
+   CONTROL CONSOLE (the mockup's own controls — not part of app)
+   ════════════════════════════════════════════════════════════ */
+.console{
+  width:min(720px,100%);
+  display:flex; flex-wrap:wrap; gap:var(--sp-3);
+  align-items:center; justify-content:center;
+  padding:var(--sp-3) var(--sp-4);
+  background:var(--chrome); color:var(--ink-dim);
+  border-radius:var(--r-lg);
+  border:1px solid var(--frame);
+  font-size:12px; text-transform:uppercase; letter-spacing:.12em;
+}
+.console b{color:var(--ink); font-weight:600;}
+.console .group{display:flex; align-items:center; gap:var(--sp-2);}
+.console button{
+  font-family:var(--font-ui); font-size:11px; font-weight:600;
+  text-transform:uppercase; letter-spacing:.1em;
+  padding:6px 10px; border-radius:var(--r-sm);
+  background:var(--panel); color:var(--ink-dim);
+  border:1px solid var(--frame); cursor:pointer; transition:all .15s;
+}
+.console button:hover{color:var(--ink); border-color:var(--chrome-hi);}
+.console button.active{background:var(--lcd-soft); color:var(--lcd); border-color:var(--lcd); box-shadow:0 0 12px var(--lcd-soft);}
+
+/* ════════════════════════════════════════════════════════════
+   THE DEVICE — physical rally dash bezel
+   ════════════════════════════════════════════════════════════ */
+.device{
+  width:min(560px,100%);
+  border-radius:var(--r-xl);
+  padding:14px;
+  background:
+    linear-gradient(180deg, var(--bezel-hi), var(--bezel) 12%, var(--bezel-lo) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.06),
+    inset 0 -2px 2px rgba(0,0,0,.6),
+    0 24px 60px rgba(0,0,0,.55),
+    0 4px 12px rgba(0,0,0,.4);
+  position:relative;
+}
+[data-theme="day"] .device{
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.8),
+    inset 0 -2px 2px rgba(0,0,0,.18),
+    0 24px 60px rgba(60,70,65,.28),
+    0 4px 12px rgba(60,70,65,.2);
+}
+/* corner screws */
+.screw{
+  position:absolute; width:8px; height:8px; border-radius:50%;
+  background:radial-gradient(circle at 35% 35%, var(--bezel-hi), var(--bezel-lo) 70%);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.5), 0 1px 1px rgba(255,255,255,.08);
+}
+.screw::after{content:""; position:absolute; inset:2px; border-radius:50%; background:linear-gradient(45deg,transparent 44%,rgba(0,0,0,.55) 44% 56%,transparent 56%);}
+.screw.tl{top:5px; left:5px;} .screw.tr{top:5px; right:5px;}
+.screw.bl{bottom:5px; left:5px;} .screw.br{bottom:5px; right:5px;}
+
+/* inner recessed panel */
+.panel{
+  border-radius:var(--r-lg);
+  background:linear-gradient(180deg, var(--panel), var(--panel-recess));
+  padding:var(--sp-3);
+  display:flex; flex-direction:column; gap:var(--sp-2);
+  box-shadow:inset 0 2px 6px rgba(0,0,0,.7), inset 0 0 0 1px var(--frame);
+}
+[data-theme="day"] .panel{ box-shadow:inset 0 2px 6px rgba(0,0,0,.22), inset 0 0 0 1px var(--frame); }
+
+/* status LED strip (top of device, like a dash) */
+.led-strip{
+  display:flex; gap:var(--sp-4); align-items:center;
+  padding:2px var(--sp-2) var(--sp-2);
+  font-family:var(--font-ui); font-size:9px; font-weight:700;
+  letter-spacing:.18em; text-transform:uppercase; color:var(--label-ink);
+}
+.led{display:inline-flex; align-items:center; gap:5px;}
+.led .dot{
+  width:7px; height:7px; border-radius:50%;
+  background:var(--led-off);
+  box-shadow:inset 0 0 2px rgba(0,0,0,.6);
+}
+.led.on .dot{ background:var(--lcd); box-shadow:0 0 8px var(--lcd-glow), inset 0 0 2px rgba(255,255,255,.4); }
+.led.danger.on .dot{ background:var(--danger); box-shadow:0 0 8px var(--danger-glow), inset 0 0 2px rgba(255,255,255,.4); animation:pulse 1s infinite; }
+.led.warn.on .dot{ background:var(--warn); box-shadow:0 0 8px var(--warn); }
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+/* ════════════════════════════════════════════════════════════
+   LCD SCREEN — common readout treatment
+   ════════════════════════════════════════════════════════════ */
+.lcd{
+  position:relative;
+  background:
+    repeating-linear-gradient(0deg, rgba(0,0,0,.05) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, var(--lcd-bg), var(--lcd-bg-2));
+  border-radius:var(--r-md);
+  box-shadow:inset 0 0 0 1px var(--frame), inset 0 2px 8px rgba(0,0,0,.55);
+  overflow:hidden;
+}
+[data-theme="day"] .lcd{
+  box-shadow:inset 0 0 0 1px var(--frame), inset 0 2px 6px rgba(0,0,0,.18);
+}
+/* faint scanline / glass sheen */
+.lcd::before{
+  content:""; position:absolute; inset:0; pointer-events:none;
+  background:linear-gradient(180deg, rgba(255,255,255,.05), transparent 30%);
+}
+[data-theme="day"] .lcd::before{ background:linear-gradient(180deg, rgba(255,255,255,.4), transparent 35%); }
+
+.lcd-7  { font-family:var(--font-lcd7);  color:var(--lcd); }
+.lcd-14 { font-family:var(--font-lcd14); color:var(--lcd); }
+[data-theme="day"] .lcd-7, [data-theme="day"] .lcd-14 { color:#0b1a14; }
+/* glow only in night mode */
+[data-theme="night"] .lcd-7, [data-theme="night"] .lcd-14 { text-shadow:0 0 12px var(--lcd-glow), 0 0 2px var(--lcd-glow); }
+
+/* ghost segments: show "8.88" faintly behind the real value */
+.ghost{ position:relative; display:inline-block; }
+.ghost::before{
+  content:"8888888";
+  position:absolute; inset:0; opacity:.07; z-index:0;
+  color:var(--lcd); font-family:inherit;
+}
+[data-theme="day"] .ghost::before{ color:#0b1a14; opacity:.10; }
+.ghost > span{ position:relative; z-index:1; }
+
+/* etched label plate */
+.plate{
+  font-family:var(--font-ui); font-size:9px; font-weight:700;
+  letter-spacing:.22em; text-transform:uppercase; color:var(--label-ink);
+  background:var(--label-plate);
+  padding:3px 7px; border-radius:var(--r-sm);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.04), inset 0 -1px 0 rgba(0,0,0,.4);
+}
+
+/* ════════════════════════════════════════════════════════════
+   TOP BAR — location + elapsed + controls
+   ════════════════════════════════════════════════════════════ */
+.top{
+  display:grid; grid-template-columns:1fr auto; gap:var(--sp-2);
+  padding:var(--sp-3);
+  background:var(--chrome);
+  border-radius:var(--r-md);
+  box-shadow:inset 0 0 0 1px var(--frame), inset 0 1px 0 rgba(255,255,255,.04);
+}
+.top-left{display:flex; flex-direction:column; gap:6px; min-width:0;}
+.comp-row{display:flex; align-items:center; gap:6px; font-size:11px; color:var(--ink-dim);}
+.comp-row .trophy{color:var(--lcd);}
+.comp-row .name{color:var(--ink); font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+
+.clock{display:flex; align-items:baseline; gap:var(--sp-2);}
+.clock .place{font-family:var(--font-ui); font-size:12px; font-weight:600; color:var(--ink-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:160px;}
+.clock .plate{margin-right:4px;}
+
+.elapsed-lcd{ font-family:var(--font-lcd7); font-size:34px; line-height:1; color:var(--lcd); }
+[data-theme="day"] .elapsed-lcd{ color:#0b1a14; }
+[data-theme="night"] .elapsed-lcd{ text-shadow:0 0 12px var(--lcd-glow); }
+
+.top-right{display:flex; gap:6px; align-items:center;}
+
+/* switchgear buttons */
+.btn{
+  font-family:var(--font-ui); font-weight:700; letter-spacing:.08em;
+  border:none; cursor:pointer; border-radius:var(--r-sm);
+  display:inline-flex; align-items:center; justify-content:center; gap:6px;
+  padding:8px 10px; font-size:12px;
+  background:linear-gradient(180deg, var(--chrome-hi), var(--chrome));
+  color:var(--ink);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.08),
+    inset 0 -2px 0 rgba(0,0,0,.5),
+    0 2px 3px rgba(0,0,0,.4);
+  transition:transform .08s, box-shadow .08s, filter .12s;
+}
+[data-theme="day"] .btn{
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.7), inset 0 -2px 0 rgba(0,0,0,.18), 0 2px 3px rgba(60,70,65,.22);
+}
+.btn:active{ transform:translateY(1px); box-shadow:inset 0 1px 2px rgba(0,0,0,.6); }
+.btn.icon{ padding:8px; width:34px; height:34px; }
+.btn.go{ background:linear-gradient(180deg, color-mix(in srgb, var(--lcd) 88%, #000), color-mix(in srgb, var(--lcd) 60%, #000)); color:#06100c; }
+.btn.stop{ background:linear-gradient(180deg, color-mix(in srgb, var(--danger) 88%, #000), color-mix(in srgb, var(--danger) 55%, #000)); color:#1a0303; }
+.btn.reset{ color:var(--ink-dim); }
+
+/* ════════════════════════════════════════════════════════════
+   Δ INDICATOR — the heart of the dash
+   ════════════════════════════════════════════════════════════ */
+.delta{
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:var(--sp-2); padding:var(--sp-4) var(--sp-3);
+  background:var(--band-bg);
+  border-radius:var(--r-md);
+  box-shadow:inset 0 0 0 1px var(--band-border), inset 0 2px 10px rgba(0,0,0,.4);
+  min-height:188px; position:relative; overflow:hidden;
+  transition:background .3s ease;
+}
+.delta .label{
+  font-family:var(--font-lcd14); font-size:22px; letter-spacing:.22em;
+  color:var(--band-fg);
+}
+[data-theme="night"] .delta .label{ text-shadow:0 0 14px var(--band-border); }
+.delta .num{
+  font-family:var(--font-lcd7); font-size:104px; line-height:.92;
+  color:var(--band-fg);
+}
+[data-theme="night"] .delta .num{ text-shadow:0 0 26px var(--band-border), 0 0 3px var(--band-fg); }
+.delta .sub{
+  font-family:var(--font-mono); font-size:13px; color:var(--ink-dim);
+  letter-spacing:.04em;
+}
+.delta .stage{
+  font-family:var(--font-ui); font-weight:800; font-size:18px;
+  letter-spacing:.14em; color:var(--lcd); text-transform:uppercase;
+}
+[data-theme="night"] .delta .stage{ text-shadow:0 0 10px var(--lcd-glow); }
+[data-theme="day"] .delta .stage{ color:#0e4d38; }
+
+.overspeed{
+  position:absolute; top:8px; left:8px; right:8px;
+  display:none; align-items:center; justify-content:center; gap:8px;
+  padding:6px 10px; border-radius:var(--r-sm);
+  background:rgba(0,0,0,.55); border:1px solid var(--danger);
+  color:var(--danger); font-family:var(--font-ui); font-weight:800;
+  letter-spacing:.18em; font-size:12px; text-transform:uppercase;
+  animation:blink .6s infinite;
+}
+.overspeed.show{display:flex;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ════════════════════════════════════════════════════════════
+   TRIPMETER — adjust | distance | adjust
+   ════════════════════════════════════════════════════════════ */
+.trip{display:grid; grid-template-columns:1fr 1.5fr 1fr; gap:var(--sp-2);}
+.adj{
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:2px; padding:var(--sp-2);
+  background:var(--chrome); border-radius:var(--r-md);
+  box-shadow:inset 0 0 0 1px var(--frame), inset 0 1px 0 rgba(255,255,255,.04);
+  cursor:pointer; user-select:none; transition:filter .12s, transform .08s;
+}
+.adj:active{ transform:translateY(1px); filter:brightness(1.15); }
+.adj .sign{ font-family:var(--font-lcd7); font-size:46px; line-height:1; color:var(--ink); }
+.adj .amt{ font-family:var(--font-ui); font-size:11px; font-weight:700; letter-spacing:.1em; color:var(--ink-dim); }
+.adj .lng{ font-family:var(--font-ui); font-size:9px; letter-spacing:.12em; color:var(--ink-faint); text-transform:uppercase; }
+
+.dist{
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:2px; padding:var(--sp-2) var(--sp-3);
+  background:linear-gradient(180deg, var(--lcd-bg), var(--lcd-bg-2));
+  border-radius:var(--r-md);
+  box-shadow:inset 0 0 0 1px var(--lcd-soft), inset 0 2px 8px rgba(0,0,0,.55);
+  position:relative; overflow:hidden;
+}
+[data-theme="day"] .dist{ box-shadow:inset 0 0 0 1px rgba(14,77,56,.3), inset 0 2px 6px rgba(0,0,0,.18); }
+.dist .km{
+  font-family:var(--font-lcd7); font-size:74px; line-height:.9; color:var(--lcd);
+}
+[data-theme="day"] .dist .km{ color:#0b1a14; }
+[data-theme="night"] .dist .km{ text-shadow:0 0 20px var(--lcd-glow); }
+.dist .unit{ font-family:var(--font-ui); font-size:13px; font-weight:700; letter-spacing:.2em; color:var(--ink-dim); }
+
+/* ════════════════════════════════════════════════════════════
+   SECONDARY PREVIEWS — competition list, detail, dialog
+   ════════════════════════════════════════════════════════════ */
+.previews{
+  width:min(1100px,100%); display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:var(--sp-4);
+}
+.prev{
+  border-radius:var(--r-lg); padding:12px;
+  background:linear-gradient(180deg, var(--bezel-hi), var(--bezel) 12%, var(--bezel-lo));
+  box-shadow:0 14px 30px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.05);
+}
+[data-theme="day"] .prev{ box-shadow:0 14px 30px rgba(60,70,65,.22), inset 0 1px 0 rgba(255,255,255,.7); }
+.prev-head{
+  font-family:var(--font-ui); font-size:11px; font-weight:700;
+  letter-spacing:.18em; text-transform:uppercase; color:var(--label-ink);
+  text-align:center; padding:6px 0 10px;
+}
+.prev-screen{
+  border-radius:var(--r-md); background:var(--panel);
+  padding:var(--sp-3); box-shadow:inset 0 0 0 1px var(--frame), inset 0 2px 6px rgba(0,0,0,.6);
+}
+.appbar{display:flex; align-items:center; gap:var(--sp-2); padding-bottom:var(--sp-3); border-bottom:1px solid var(--frame); margin-bottom:var(--sp-3);}
+.appbar .title{font-weight:800; font-size:15px; letter-spacing:.06em; color:var(--ink); flex:1;}
+.appbar .ico{color:var(--ink-dim); font-size:15px; cursor:pointer;}
+
+.tile{
+  display:flex; align-items:flex-start; gap:var(--sp-2);
+  padding:var(--sp-3); border-radius:var(--r-md); margin-bottom:var(--sp-2);
+  background:var(--chrome); box-shadow:inset 0 0 0 1px var(--frame);
+}
+.tile .body{flex:1; min-width:0;}
+.tile .ttl{font-weight:700; font-size:14px; color:var(--ink); letter-spacing:.04em;}
+.tile .meta{font-size:11px; color:var(--ink-dim); margin-top:3px; display:flex; gap:8px; flex-wrap:wrap;}
+.tile .meta span{display:inline-flex; align-items:center; gap:4px;}
+.pill{font-size:9px; font-weight:800; letter-spacing:.14em; padding:3px 7px; border-radius:var(--r-pill); text-transform:uppercase;}
+.pill.run{background:var(--lcd-soft); color:var(--lcd); border:1px solid var(--lcd);}
+.pill.wait{background:rgba(255,238,88,.15); color:var(--warn); border:1px solid var(--warn);}
+.pill.done{background:var(--chrome-hi); color:var(--ink-dim); border:1px solid var(--frame);}
+.tile .trailing{display:flex; flex-direction:column; gap:6px; align-items:flex-end;}
+.tile .mini{color:var(--ink-faint); font-size:15px; cursor:pointer;}
+
+.result{font-family:var(--font-mono); font-size:11px; color:var(--ink-dim); margin-top:6px; display:flex; gap:8px;}
+.result b{color:var(--lcd);}
+
+/* dialog mock */
+.dialog{
+  width:260px; background:var(--panel); border-radius:var(--r-md);
+  box-shadow:0 20px 50px rgba(0,0,0,.6), inset 0 0 0 1px var(--frame);
+  padding:var(--sp-4); margin:var(--sp-4) auto;
+}
+.dialog .dt{font-weight:800; font-size:15px; color:var(--ink); margin-bottom:8px;}
+.dialog .dc{font-size:12px; color:var(--ink-dim); line-height:1.5; margin-bottom:14px;}
+.dialog .row{display:flex; gap:8px; justify-content:flex-end;}
+.dialog .row .btn{padding:7px 12px; font-size:11px;}
+
+/* spec strip */
+.spec{
+  width:min(1100px,100%); display:flex; flex-wrap:wrap; gap:var(--sp-4);
+  padding:var(--sp-4); border-radius:var(--r-lg);
+  background:var(--chrome); border:1px solid var(--frame); color:var(--ink-dim);
+  font-size:12px;
+}
+.spec b{color:var(--ink); font-weight:700;}
+.spec .item{flex:1; min-width:180px;}
+.spec h4{font-family:var(--font-ui); font-size:10px; letter-spacing:.2em; text-transform:uppercase; color:var(--lcd); margin-bottom:6px;}
+
+</style>
+</head>
+<body>
+
+<!-- ════════ mockup control console ════════ -->
+<div class="console">
+  <div class="group"><b>Tema</b>
+    <button data-set="theme" data-val="night" class="active">Night</button>
+    <button data-set="theme" data-val="day">Day</button>
+  </div>
+  <div class="group"><b>Accent</b>
+    <button data-set="accent" data-val="teal" class="active">Teal</button>
+    <button data-set="accent" data-val="green">Green</button>
+    <button data-set="accent" data-val="amber">Amber</button>
+  </div>
+  <div class="group"><b>Δ</b>
+    <button data-set="band" data-val="ontime" class="active">La timp</button>
+    <button data-set="band" data-val="advance">Avans</button>
+    <button data-set="band" data-val="delay">Întârziere</button>
+  </div>
+  <div class="group"><b>LED-uri</b>
+    <button id="overspeedToggle">⚠ Over-speed</button>
+    <button id="gpsToggle" class="active">GPS</button>
+  </div>
+</div>
+
+<!-- ════════ THE RALLY DASH ════════ -->
+<div class="device">
+  <span class="screw tl"></span><span class="screw tr"></span>
+  <span class="screw bl"></span><span class="screw br"></span>
+
+  <div class="led-strip">
+    <span class="led on" id="ledGps"><span class="dot"></span>GPS</span>
+    <span class="led on"><span class="dot"></span>STAGE</span>
+    <span class="led danger" id="ledOver"><span class="dot"></span>OVER&#8209;SPD</span>
+    <span class="led warn"><span class="dot"></span>AUTO&#8209;START</span>
+    <span style="flex:1"></span>
+    <span style="font-family:var(--font-mono)">RETROMETER · v1.0</span>
+  </div>
+
+  <div class="panel">
+
+    <!-- TOP BAR -->
+    <div class="top">
+      <div class="top-left">
+        <div class="comp-row">
+          <span class="trophy">🏆</span>
+          <span class="name">Cupa Z3 · Cls. Regularitate</span>
+        </div>
+        <div class="clock">
+          <span class="plate">LOC</span>
+          <span class="place">Sibiu — Păltiniș</span>
+          <span class="plate" style="margin-left:auto">T</span>
+          <span class="elapsed-lcd ghost"><span id="elapsed">00:42</span></span>
+        </div>
+      </div>
+      <div class="top-right">
+        <button class="btn icon" title="Competiții">📅</button>
+        <button class="btn icon" title="Despre">ℹ</button>
+        <button class="btn icon" title="Config">⚙</button>
+      </div>
+    </div>
+
+    <!-- Δ INDICATOR -->
+    <div class="delta" id="delta">
+      <div class="overspeed" id="overspeed">⚠ OVER SPEED</div>
+      <div class="label" id="bandLabel">LA TIMP</div>
+      <div class="num ghost"><span id="deltaNum">+0.0</span></div>
+      <div class="sub" id="deltaSub">țintă 40 · reală 38 · acum 52 km/h</div>
+      <div class="stage">SS2 — Păltiniș</div>
+    </div>
+
+    <!-- TRIPMETER -->
+    <div class="trip">
+      <div class="adj" id="adjMinus">
+        <span class="sign">−</span>
+        <span class="amt">10 m</span>
+        <span class="lng">lung: 100 m</span>
+      </div>
+      <div class="dist">
+        <span class="km ghost"><span id="km">14.56</span></span>
+        <span class="unit">km</span>
+      </div>
+      <div class="adj" id="adjPlus">
+        <span class="sign">+</span>
+        <span class="amt">10 m</span>
+        <span class="lng">lung: 100 m</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ════════ SECONDARY SCREENS ════════ -->
+<div class="previews">
+
+  <!-- Competition list -->
+  <div class="prev">
+    <div class="prev-head">Ecran · Competiții</div>
+    <div class="prev-screen">
+      <div class="appbar"><span class="title">Competiții</span><span class="ico">⋮</span></div>
+      <div class="tile">
+        <div class="body">
+          <div class="ttl">Cupa Z3 · Regularitate</div>
+          <div class="meta"><span>📍 Sibiu</span><span>🏎 Z3 2.8</span><span>🏁 6 etape</span></div>
+        </div>
+        <div class="trailing"><span class="pill run">În cursă</span></div>
+      </div>
+      <div class="tile">
+        <div class="body">
+          <div class="ttl">Raliul Brașovului</div>
+          <div class="meta"><span>📍 Brașov</span><span>🏁 4 etape</span></div>
+        </div>
+        <div class="trailing"><span class="pill wait">Programat</span></div>
+      </div>
+      <div class="tile">
+        <div class="body">
+          <div class="ttl">Importate</div>
+          <div class="meta"><span>🏁 2 etape</span></div>
+        </div>
+        <div class="trailing"><span class="pill done">Finalizat</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Competition detail -->
+  <div class="prev">
+    <div class="prev-head">Ecran · Detaliu competiție</div>
+    <div class="prev-screen">
+      <div class="appbar"><span class="ico">‹</span><span class="title">Cupa Z3</span><span class="ico">✎</span><span class="ico">🗑</span></div>
+      <div class="tile" style="background:var(--lcd-bg); box-shadow:inset 0 0 0 1px var(--lcd-soft)">
+        <div class="body">
+          <div class="ttl" style="color:var(--lcd)">Cupa Z3 · Regularitate</div>
+          <div class="meta"><span>Pilot: M. Pop</span><span>Co: A. Rus</span></div>
+          <div class="meta"><span>Category: N/A</span><span>Total: 12 echipe</span></div>
+        </div>
+      </div>
+      <div class="tile">
+        <div class="body">
+          <div class="ttl">SS2 — Păltiniș</div>
+          <div class="meta"><span>🕐 14:30</span><span>📍 start geofence 200m</span></div>
+          <div class="meta"><span>țintă 40 · max 70 km/h</span><span>6.4 km · 09:30</span></div>
+          <div class="result"><b>rezultat:</b> max 68 / min 0 / med 41 km/h</div>
+        </div>
+        <div class="trailing"><span class="pill done">Finalizat</span><span class="mini">▶</span><span class="mini">🗑</span></div>
+      </div>
+      <div class="tile">
+        <div class="body">
+          <div class="ttl">SS3 — Râșnov</div>
+          <div class="meta"><span>🕐 15:45</span><span>📍 200m</span><span>țintă 45 · max 70</span></div>
+        </div>
+        <div class="trailing"><span class="pill wait">Așteptare</span><span class="mini">▶</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dialog -->
+  <div class="prev">
+    <div class="prev-head">Dialog · Auto-start</div>
+    <div class="prev-screen" style="display:flex; align-items:center; justify-content:center; min-height:300px; background:rgba(0,0,0,.35)">
+      <div class="dialog">
+        <div class="dt">⚠ Pornire stage</div>
+        <div class="dc">„SS2 — Păltiniș" — la ora <b style="color:var(--lcd)">14:30</b>. Doriți să porniți?</div>
+        <div class="row">
+          <button class="btn">Nu</button>
+          <button class="btn go">Da</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- spec -->
+<div class="spec">
+  <div class="item"><h4>Tipografie</h4>
+    <b>DSEG7</b> — numere hero (distanță, elapsed, Δ) ·
+    <b>DSEG14</b> — label bandă Δ ·
+    <b>Oxanium</b> — UI/labels/buttons
+  </div>
+  <div class="item"><h4>Materialitate</h4>
+    Bezel cu șuruburi · panou retras · plăcuțe gravate · butoane switchgear · LED-uri status · glow noapte / LCD reflexiv zi
+  </div>
+  <div class="item"><h4>Day / Night</h4>
+    Night = LCD backlit (segmente luminate + glow pe negru) · Day = LCD reflexiv (segmente întunecate pe fundal deschis, zero glow)
+  </div>
+</div>
+
+<script>
+const root = document.documentElement;
+document.querySelectorAll('.console [data-set]').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll(`[data-set="${b.dataset.set}"]`).forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    root.dataset[b.dataset.set]=b.dataset.val;
+    updateBand();
+  });
+});
+
+const bandLabels={ontime:'LA TIMP', advance:'AVANS', delay:'ÎNTÂRZIERE'};
+const bandNums  ={ontime:'+0.0',  advance:'-12.4', delay:'+08.6'};
+const bandSubs  ={
+  ontime:'țintă 40 · reală 40 · acum 41 km/h',
+  advance:'țintă 40 · reală 44 · acum 58 km/h',
+  delay:'țintă 40 · reală 36 · acum 33 km/h'
+};
+function updateBand(){
+  const b=root.dataset.band;
+  document.getElementById('bandLabel').textContent=bandLabels[b];
+  document.getElementById('deltaNum').textContent=bandNums[b];
+  document.getElementById('deltaSub').textContent=bandSubs[b];
+}
+updateBand();
+
+// over-speed
+const osBtn=document.getElementById('overspeedToggle');
+const os=document.getElementById('overspeed');
+const ledOver=document.getElementById('ledOver');
+osBtn.addEventListener('click',()=>{
+  const on=os.classList.toggle('show');
+  ledOver.classList.toggle('on',on);
+  osBtn.classList.toggle('active',on);
+});
+// gps
+const gpsBtn=document.getElementById('gpsToggle');
+const ledGps=document.getElementById('ledGps');
+gpsBtn.addEventListener('click',()=>{
+  const on=ledGps.classList.toggle('on');
+  gpsBtn.classList.toggle('active',on);
+});
+
+// interactive distance adjust
+let km=14.56;
+const kmEl=document.getElementById('km');
+function fmt(k){return k.toFixed(2);}
+document.getElementById('adjPlus').addEventListener('click',()=>{km=Math.min(99.99,km+0.01); kmEl.textContent=fmt(km);});
+document.getElementById('adjMinus').addEventListener('click',()=>{km=Math.max(0,km-0.01); kmEl.textContent=fmt(km);});
+
+// elapsed ticking
+let secs=42;
+const el=document.getElementById('elapsed');
+setInterval(()=>{
+  secs++; const m=String(Math.floor(secs/60)).padStart(2,'0'); const s=String(secs%60).padStart(2,'0');
+  el.textContent=`${m}:${s}`;
+},1000);
+</script>
+</body>
+</html>

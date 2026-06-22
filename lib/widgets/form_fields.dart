@@ -10,7 +10,7 @@ import '../utils/formatting.dart';
 Widget pickerTheme(BuildContext context, Widget? child) => Theme(
       data: ThemeData.dark().copyWith(
         colorScheme:
-            const ColorScheme.dark(primary: RetrometerColors.primary),
+            ColorScheme.dark(primary: context.colors.primary),
       ),
       child: child!,
     );
@@ -98,7 +98,7 @@ class _NumberFieldState extends State<NumberField> {
     return Row(
       children: [
         Expanded(
-          child: Text(widget.label, style: RetrometerTextStyles.fieldLabel),
+          child: Text(widget.label, style: context.text.fieldLabel),
         ),
         SizedBox(
           width: 100,
@@ -108,7 +108,7 @@ class _NumberFieldState extends State<NumberField> {
                 ? const TextInputType.numberWithOptions(decimal: true)
                 : TextInputType.number,
             textAlign: TextAlign.center,
-            style: RetrometerTextStyles.fieldInput,
+            style: context.text.fieldInput,
             inputFormatters: [formatter],
             onChanged: (s) {
               final v = double.tryParse(s);
@@ -145,7 +145,7 @@ class _IntFieldState extends State<IntField> {
     return Row(
       children: [
         Expanded(
-          child: Text(widget.label, style: RetrometerTextStyles.fieldLabelSmall),
+          child: Text(widget.label, style: context.text.fieldLabelSmall),
         ),
         SizedBox(
           width: 90,
@@ -153,7 +153,7 @@ class _IntFieldState extends State<IntField> {
             controller: widget.controller,
             keyboardType: TextInputType.number,
             textAlign: TextAlign.center,
-            style: RetrometerTextStyles.fieldInputSmall,
+            style: context.text.fieldInputSmall,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             onChanged: (s) {
               final v = int.tryParse(s);
@@ -190,7 +190,7 @@ class _DecimalFieldState extends State<DecimalField> {
     return Row(
       children: [
         Expanded(
-          child: Text(widget.label, style: RetrometerTextStyles.fieldLabelSmall),
+          child: Text(widget.label, style: context.text.fieldLabelSmall),
         ),
         SizedBox(
           width: 110,
@@ -199,7 +199,7 @@ class _DecimalFieldState extends State<DecimalField> {
             keyboardType:
                 const TextInputType.numberWithOptions(decimal: true),
             textAlign: TextAlign.center,
-            style: RetrometerTextStyles.fieldInputSmall,
+            style: context.text.fieldInputSmall,
             inputFormatters: [
               FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*$')),
             ],
@@ -232,7 +232,7 @@ class LabeledTextField extends StatelessWidget {
     return TextField(
       controller: controller,
       keyboardType: keyboardType,
-      style: const TextStyle(color: RetrometerColors.textPrimary),
+      style: TextStyle(color: context.colors.textPrimary),
       decoration: InputDecoration(labelText: label),
     );
   }
@@ -263,7 +263,7 @@ class _CoordFieldState extends State<CoordField> {
       controller: widget.controller,
       keyboardType:
           const TextInputType.numberWithOptions(decimal: true, signed: true),
-      style: const TextStyle(color: RetrometerColors.textPrimary),
+      style: TextStyle(color: context.colors.textPrimary),
       decoration: InputDecoration(
         labelText: widget.label,
         isDense: true,
@@ -297,7 +297,7 @@ class DateTimeField extends StatelessWidget {
       children: [
         Expanded(
           child: Text('Start: ${formatDateTime(value)}',
-              style: RetrometerTextStyles.fieldLabel),
+              style: context.text.fieldLabel),
         ),
         TextButton(
           onPressed: () async {
@@ -321,13 +321,13 @@ class DateTimeField extends StatelessWidget {
           },
           child: Text(
             hasValue ? 'Schimbă' : 'Alege data/ora',
-            style: const TextStyle(color: RetrometerColors.primary),
+            style: TextStyle(color: context.colors.primary),
           ),
         ),
         if (hasValue)
           IconButton(
-            icon: const Icon(Icons.clear,
-                color: RetrometerColors.textTertiary, size: 18),
+            icon: Icon(Icons.clear,
+                color: context.colors.textTertiary, size: 18),
             tooltip: 'Șterge ora de start',
             onPressed: () => onChanged(null),
           ),
@@ -382,7 +382,7 @@ class DateRangeField extends StatelessWidget {
                 startDate == null
                     ? 'Data start: —'
                     : 'Data start: ${_formatDate(startDate!)}',
-                style: RetrometerTextStyles.fieldLabel,
+                style: context.text.fieldLabel,
               ),
             ),
             TextButton(
@@ -396,13 +396,13 @@ class DateRangeField extends StatelessWidget {
               },
               child: Text(
                 startDate == null ? 'Alege data' : 'Schimbă',
-                style: const TextStyle(color: RetrometerColors.primary),
+                style: TextStyle(color: context.colors.primary),
               ),
             ),
             if (startDate != null)
               IconButton(
-                icon: const Icon(Icons.clear,
-                    color: RetrometerColors.textTertiary, size: 18),
+                icon: Icon(Icons.clear,
+                    color: context.colors.textTertiary, size: 18),
                 tooltip: 'Șterge data start',
                 onPressed: () => onChanged(null, endDate),
               ),
@@ -417,7 +417,7 @@ class DateRangeField extends StatelessWidget {
                 endDate == null
                     ? 'Data sfârșit: — (o singură zi)'
                     : 'Data sfârșit: ${_formatDate(endDate!)}',
-                style: RetrometerTextStyles.fieldLabel,
+                style: context.text.fieldLabel,
               ),
             ),
             TextButton(
@@ -434,13 +434,13 @@ class DateRangeField extends StatelessWidget {
                     },
               child: Text(
                 endDate == null ? 'Alege data' : 'Schimbă',
-                style: const TextStyle(color: RetrometerColors.primary),
+                style: TextStyle(color: context.colors.primary),
               ),
             ),
             if (endDate != null)
               IconButton(
-                icon: const Icon(Icons.clear,
-                    color: RetrometerColors.textTertiary, size: 18),
+                icon: Icon(Icons.clear,
+                    color: context.colors.textTertiary, size: 18),
                 tooltip: 'Șterge data sfârșit',
                 onPressed: () => onChanged(startDate, null),
               ),

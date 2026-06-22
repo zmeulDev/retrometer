@@ -16,9 +16,9 @@ class MetaChip extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, color: RetrometerColors.textTertiary, size: 15),
+        Icon(icon, color: context.colors.textTertiary, size: 15),
         const SizedBox(width: 4),
-        Text(text, style: RetrometerTextStyles.metaStrong),
+        Text(text, style: context.text.metaStrong),
       ],
     );
   }
@@ -46,14 +46,14 @@ class InfoLine extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, color: iconColor ?? RetrometerColors.textTertiary, size: iconSize),
+        Icon(icon, color: iconColor ?? context.colors.textTertiary, size: iconSize),
         const SizedBox(width: 6),
         Expanded(
           child: Text(
             text,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: textStyle ?? RetrometerTextStyles.meta,
+            style: textStyle ?? context.text.meta,
           ),
         ),
       ],
@@ -80,13 +80,13 @@ class HeaderRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color =
-        highlight ? RetrometerColors.primary : RetrometerColors.textSecondary;
+        highlight ? context.colors.primary : context.colors.textSecondary;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(icon, color: color, size: 16),
         const SizedBox(width: 6),
-        Text('$label: ', style: RetrometerTextStyles.meta),
+        Text('$label: ', style: context.text.meta),
         Text(value,
             style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.w600)),
       ],
@@ -106,11 +106,11 @@ class StatusPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: RetrometerColors.pillDecoration(color),
+      padding: const EdgeInsets.symmetric(horizontal: RetrometerSpacing.s8, vertical: 3),
+      decoration: context.colors.pillDecoration(color),
       child: Text(
         text,
-        style: RetrometerTextStyles.badge.copyWith(color: color),
+        style: context.text.badge.copyWith(color: color),
       ),
     );
   }
@@ -135,16 +135,16 @@ class EmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(RetrometerSpacing.s32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: RetrometerColors.textFaint, size: iconSize),
+            Icon(icon, color: context.colors.textFaint, size: iconSize),
             const SizedBox(height: 14),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: titleStyle ?? RetrometerTextStyles.emptyTitleSmall,
+              style: titleStyle ?? context.text.emptyTitleSmall,
             ),
           ],
         ),
@@ -176,7 +176,7 @@ Future<bool> confirmDialog(
         TextButton(
           onPressed: () => Navigator.of(context).pop(true),
           child: Text(confirmLabel,
-              style: const TextStyle(color: RetrometerColors.danger)),
+              style: TextStyle(color: context.colors.danger)),
         ),
       ],
     ),

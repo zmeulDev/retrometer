@@ -39,7 +39,7 @@ Future<void> showStageConfigSheet(BuildContext context, WidgetRef ref) async {
         children: [
           TextField(
             controller: nameCtrl,
-            style: const TextStyle(color: RetrometerColors.textPrimary),
+            style: TextStyle(color: context.colors.textPrimary),
             decoration: const InputDecoration(labelText: 'Nume'),
           ),
           const SizedBox(height: 16),

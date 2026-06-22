@@ -71,7 +71,7 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
             Expanded(
               child: TextField(
                 controller: _addressCtrl,
-                style: const TextStyle(color: RetrometerColors.textPrimary),
+                style: TextStyle(color: context.colors.textPrimary),
                 decoration: InputDecoration(
                   isDense: true,
                   hintText: widget.hintText,
@@ -81,13 +81,13 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
             const SizedBox(width: 8),
             IconButton(
               icon: _geocoding
-                  ? const SizedBox(
+                  ? SizedBox(
                       width: 20,
                       height: 20,
                       child: CircularProgressIndicator(
-                          strokeWidth: 2, color: RetrometerColors.primary),
+                          strokeWidth: 2, color: context.colors.primary),
                     )
-                  : const Icon(Icons.search, color: RetrometerColors.primary),
+                  : Icon(Icons.search, color: context.colors.primary),
               tooltip: 'Caută adresă',
               onPressed: _geocoding ? null : _geocode,
             ),
@@ -95,8 +95,8 @@ class _AddressSearchFieldState extends State<AddressSearchField> {
         ),
         if (_error != null)
           Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text(_error!, style: RetrometerTextStyles.fieldError),
+            padding: const EdgeInsets.only(top: RetrometerSpacing.s4),
+            child: Text(_error!, style: context.text.fieldError),
           ),
       ],
     );
@@ -142,9 +142,9 @@ class MyLocationButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return TextButton.icon(
-      icon: const Icon(Icons.my_location, color: RetrometerColors.primary),
-      label: const Text('Locația mea',
-          style: TextStyle(color: RetrometerColors.primary)),
+      icon: Icon(Icons.my_location, color: context.colors.primary),
+      label: Text('Locația mea',
+          style: TextStyle(color: context.colors.primary)),
       onPressed: () => _resolve(context),
     );
   }

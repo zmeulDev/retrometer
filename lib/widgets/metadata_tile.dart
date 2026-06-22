@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme/retrometer_theme.dart';
 import 'cards.dart';
 
 /// The shared chrome for the competition / stage / history tiles: a
@@ -16,7 +17,7 @@ class MetadataTile extends StatelessWidget {
     this.onTap,
     required this.child,
     this.trailing,
-    this.padding = const EdgeInsets.fromLTRB(16, 12, 12, 12),
+    this.padding = const EdgeInsets.fromLTRB(RetrometerSpacing.s16, RetrometerSpacing.s12, RetrometerSpacing.s12, RetrometerSpacing.s12),
   });
 
   final VoidCallback? onTap;

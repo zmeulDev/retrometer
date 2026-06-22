@@ -10,6 +10,7 @@
 .history
 .svn/
 .swiftpm/
+
 migrate_working_dir/
 
 # IntelliJ related
@@ -43,3 +44,6 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+assets/fonts/Roboto/
+assets/fonts/Roboto_Mono/
+assets/fonts/Saira_Stencil/

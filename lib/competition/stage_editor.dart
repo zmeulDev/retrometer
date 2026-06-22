@@ -279,7 +279,7 @@ class _StageEditorState extends State<StageEditor> {
       children: [
         TextField(
           controller: _nameCtrl,
-          style: const TextStyle(color: RetrometerColors.textPrimary),
+          style: TextStyle(color: context.colors.textPrimary),
           decoration: const InputDecoration(labelText: 'Nume'),
           onChanged: (v) => _draft.name = v,
         ),
@@ -331,7 +331,7 @@ class _StageEditorState extends State<StageEditor> {
               children: [
                 Expanded(
                   child: Text('Timp total alocat',
-                      style: RetrometerTextStyles.fieldLabel),
+                      style: context.text.fieldLabel),
                 ),
                 SizedBox(
                   width: 60,
@@ -339,13 +339,13 @@ class _StageEditorState extends State<StageEditor> {
                     controller: _allocMinCtrl,
                     keyboardType: TextInputType.number,
                     textAlign: TextAlign.center,
-                    style: RetrometerTextStyles.fieldInput,
+                    style: context.text.fieldInput,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       isDense: true,
                       hintText: 'min',
                       hintStyle: TextStyle(
-                          color: RetrometerColors.hint, fontSize: 12),
+                          color: context.colors.hint, fontSize: 12),
                     ),
                     onChanged: (s) {
                       final m = int.tryParse(s) ?? 0;
@@ -354,11 +354,11 @@ class _StageEditorState extends State<StageEditor> {
                     },
                   ),
                 ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 6),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
                   child: Text(':',
                       style: TextStyle(
-                          color: RetrometerColors.textSecondary,
+                          color: context.colors.textSecondary,
                           fontSize: 20)),
                 ),
                 SizedBox(
@@ -367,13 +367,13 @@ class _StageEditorState extends State<StageEditor> {
                     controller: _allocSecCtrl,
                     keyboardType: TextInputType.number,
                     textAlign: TextAlign.center,
-                    style: RetrometerTextStyles.fieldInput,
+                    style: context.text.fieldInput,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       isDense: true,
                       hintText: 'sec',
                       hintStyle: TextStyle(
-                          color: RetrometerColors.hint, fontSize: 12),
+                          color: context.colors.hint, fontSize: 12),
                     ),
                     onChanged: (s) {
                       final sec = int.tryParse(s) ?? 0;
@@ -402,16 +402,16 @@ class _StageEditorState extends State<StageEditor> {
             ),
             SwitchListTile(
               dense: true,
-              title: const Text('Auto-stop la ajungere în geofence',
-                  style: TextStyle(color: RetrometerColors.textPrimary)),
+              title: Text('Auto-stop la ajungere în geofence',
+                  style: TextStyle(color: context.colors.textPrimary)),
               value: _draft.autoStop,
               onChanged: (v) => setState(() => _draft.autoStop = v),
             ),
             const SizedBox(height: 8),
             SwitchListTile(
               dense: true,
-              title: const Text('Auto-start (timp SAU locație)',
-                  style: TextStyle(color: RetrometerColors.textPrimary)),
+              title: Text('Auto-start (timp SAU locație)',
+                  style: TextStyle(color: context.colors.textPrimary)),
               value: _draft.autoStart,
               onChanged: (v) => setState(() => _draft.autoStart = v),
             ),

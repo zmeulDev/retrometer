@@ -29,11 +29,13 @@ class GuideScreen extends StatelessWidget {
       appBar: AppBar(title: const Text('Ghid de utilizare')),
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-          children: const [
-            _CockpitMockup(),
-            SizedBox(height: 24),
-            _SectionTitle('Cum pornești'),
+          padding: const EdgeInsets.fromLTRB(
+              RetrometerSpacing.s16, RetrometerSpacing.s8,
+              RetrometerSpacing.s16, RetrometerSpacing.s32),
+          children: [
+            const _CockpitMockup(),
+            const SizedBox(height: 24),
+            const _SectionTitle('Cum pornești'),
             _GuideRow(
               icon: Icons.settings,
               text: 'Apasă ⚙ și setează viteza medie țintă (ex. 40 km/h) '
@@ -41,38 +43,38 @@ class GuideScreen extends StatelessWidget {
             ),
             _GuideRow(
               icon: Icons.play_arrow,
-              color: RetrometerColors.primary,
+              color: context.colors.primary,
               text: 'Apasă ▶ START. Se cere permisiunea de locație; '
                   'ecranul rămâne aprins cât durează treapta.',
             ),
-            SizedBox(height: 20),
-            _SectionTitle('Indicatorul Δ (secunde)'),
+            const SizedBox(height: 20),
+            const _SectionTitle('Indicatorul Δ (secunde)'),
             _GuideRow(
               icon: Icons.check,
-              color: RetrometerColors.primary,
+              color: context.colors.primary,
               text: 'VERDE — LA TIMP: ești în ±1 s față de timpul ideal. '
                   'Țintește să stai aici.',
             ),
             _GuideRow(
               icon: Icons.arrow_upward,
-              color: RetrometerColors.danger,
+              color: context.colors.danger,
               text: 'ROȘU — AVANS (−): mergi prea repede. Frânează ușor până '
                   'Δ revine la 0.',
             ),
             _GuideRow(
               icon: Icons.arrow_downward,
-              color: RetrometerColors.secondary,
+              color: context.colors.secondary,
               text: 'GALBEN — ÎNTÂRZIERE (+): mergi prea încet. Accelierează '
                   'ușor până Δ revine la 0.',
             ),
             _GuideRow(
               icon: Icons.warning_amber,
-              color: RetrometerColors.danger,
+              color: context.colors.danger,
               text: 'Dacă viteza depășește limita maximă, apare alerta '
                   '⚠ OVER SPEED.',
             ),
-            SizedBox(height: 20),
-            _SectionTitle('Calibrarea distanței la bornă'),
+            const SizedBox(height: 20),
+            const _SectionTitle('Calibrarea distanței la bornă'),
             _GuideRow(
               icon: Icons.remove,
               text: '−10 m (stânga jos): scade distanța cu 10 m. '
@@ -90,11 +92,11 @@ class GuideScreen extends StatelessWidget {
                   'apasă +10 m de 3 ori). Vibrația confirmă apăsarea fără să '
                   'te uiți.',
             ),
-            SizedBox(height: 20),
-            _SectionTitle('Competiții și stagii'),
+            const SizedBox(height: 20),
+            const _SectionTitle('Competiții și stagii'),
             _GuideRow(
               icon: Icons.emoji_events,
-              color: RetrometerColors.primary,
+              color: context.colors.primary,
               text: 'Apasă 📅 (sus) ca să vezi competițiile. Fiecare competiție '
                   'ține detaliile (nume, locație, piloți, mașină, categorie, '
                   'contact, cost, loc la general/categorie) și lista ei de '
@@ -114,22 +116,22 @@ class GuideScreen extends StatelessWidget {
             ),
             _GuideRow(
               icon: Icons.play_arrow,
-              color: RetrometerColors.primary,
+              color: context.colors.primary,
               text: 'Cu auto-start pornit, treapta începe singură când ora '
                   'ajunge și ești în interiorul geofence-ului. Poți porni '
                   'și manual cu ▶ de pe fiecare stage.',
             ),
-            SizedBox(height: 20),
-            _SectionTitle('Altele'),
+            const SizedBox(height: 20),
+            const _SectionTitle('Altele'),
             _GuideRow(
               icon: Icons.location_on,
-              color: RetrometerColors.primary,
+              color: context.colors.primary,
               text: '📍 Sus apare localitatea curentă (din GPS). Se '
                   'actualizează când te muți cu ~1 km.',
             ),
             _GuideRow(
               icon: Icons.stop,
-              color: RetrometerColors.danger,
+              color: context.colors.danger,
               text: '■ STOP oprește treapta (păstrează distanța). '
                   '↻ RESET o reinițializează.',
             ),
@@ -158,7 +160,7 @@ class _SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return SectionTitle(
       text,
-      style: RetrometerTextStyles.guideSection,
+      style: context.text.guideSection,
     );
   }
 }
@@ -172,7 +174,7 @@ class _GuideRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = color ?? RetrometerColors.textSecondary;
+    final c = color ?? context.colors.textSecondary;
     return IconTextRow(
       icon: icon,
       text: text,
@@ -190,15 +192,15 @@ class _CockpitMockup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const border =
-        BorderSide(color: RetrometerColors.dividerStrong, width: 1);
+    final border =
+        BorderSide(color: context.colors.dividerStrong, width: 1);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text(
+        Text(
           'Așezarea ecranului',
           style: TextStyle(
-            color: RetrometerColors.textSecondary,
+            color: context.colors.textSecondary,
             fontSize: 13,
             fontWeight: FontWeight.bold,
           ),
@@ -206,27 +208,27 @@ class _CockpitMockup extends StatelessWidget {
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
-            border: Border.all(color: RetrometerColors.dividerStrong),
-            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: context.colors.dividerStrong),
+            borderRadius: BorderRadius.circular(RetrometerRadii.field),
           ),
-          child: const Column(
+          child: Column(
             children: [
               _MockZone(
                 height: 36,
-                color: RetrometerColors.surface,
+                color: context.colors.surface,
                 border: border,
                 label: '📍 Localitate · nume · timp · controale',
               ),
               _MockZone(
                 height: 90,
-                color: RetrometerColors.onTimeBg,
+                color: context.colors.onTimeBg,
                 border: border,
                 label: 'Δ  AVANS / ÎNTÂRZIERE / LA TIMP',
                 big: true,
               ),
               _MockZone(
                 height: 80,
-                color: RetrometerColors.background,
+                color: context.colors.background,
                 border: border,
                 label: '− 10 m   |   14.56 km   |   + 10 m',
               ),
@@ -262,14 +264,14 @@ class _MockZone extends StatelessWidget {
         border: Border(top: border),
       ),
       alignment: Alignment.center,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      padding: const EdgeInsets.symmetric(horizontal: RetrometerSpacing.s8),
       child: Text(
         label,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         textAlign: TextAlign.center,
         style: TextStyle(
-          color: big ? RetrometerColors.primary : RetrometerColors.textSecondary,
+          color: big ? context.colors.primary : context.colors.textSecondary,
           fontSize: big ? 16 : 12,
           fontWeight: big ? FontWeight.bold : FontWeight.normal,
         ),
