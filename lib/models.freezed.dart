@@ -374,6 +374,9 @@ mixin _$StageTelemetry {
   StageStatus get status => throw _privateConstructorUsedError;
   double? get latitude => throw _privateConstructorUsedError;
   double? get longitude => throw _privateConstructorUsedError;
+  double get maxSpeedKmh => throw _privateConstructorUsedError;
+  double? get minSpeedKmh => throw _privateConstructorUsedError;
+  StageResult? get result => throw _privateConstructorUsedError;
 
   /// Create a copy of StageTelemetry
   /// with the given fields replaced by the non-null parameter values.
@@ -396,7 +399,12 @@ abstract class $StageTelemetryCopyWith<$Res> {
     StageStatus status,
     double? latitude,
     double? longitude,
+    double maxSpeedKmh,
+    double? minSpeedKmh,
+    StageResult? result,
   });
+
+  $StageResultCopyWith<$Res>? get result;
 }
 
 /// @nodoc
@@ -420,6 +428,9 @@ class _$StageTelemetryCopyWithImpl<$Res, $Val extends StageTelemetry>
     Object? status = null,
     Object? latitude = freezed,
     Object? longitude = freezed,
+    Object? maxSpeedKmh = null,
+    Object? minSpeedKmh = freezed,
+    Object? result = freezed,
   }) {
     return _then(
       _value.copyWith(
@@ -447,9 +458,35 @@ class _$StageTelemetryCopyWithImpl<$Res, $Val extends StageTelemetry>
                 ? _value.longitude
                 : longitude // ignore: cast_nullable_to_non_nullable
                       as double?,
+            maxSpeedKmh: null == maxSpeedKmh
+                ? _value.maxSpeedKmh
+                : maxSpeedKmh // ignore: cast_nullable_to_non_nullable
+                      as double,
+            minSpeedKmh: freezed == minSpeedKmh
+                ? _value.minSpeedKmh
+                : minSpeedKmh // ignore: cast_nullable_to_non_nullable
+                      as double?,
+            result: freezed == result
+                ? _value.result
+                : result // ignore: cast_nullable_to_non_nullable
+                      as StageResult?,
           )
           as $Val,
     );
+  }
+
+  /// Create a copy of StageTelemetry
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @pragma('vm:prefer-inline')
+  $StageResultCopyWith<$Res>? get result {
+    if (_value.result == null) {
+      return null;
+    }
+
+    return $StageResultCopyWith<$Res>(_value.result!, (value) {
+      return _then(_value.copyWith(result: value) as $Val);
+    });
   }
 }
 
@@ -469,7 +506,13 @@ abstract class _$$StageTelemetryImplCopyWith<$Res>
     StageStatus status,
     double? latitude,
     double? longitude,
+    double maxSpeedKmh,
+    double? minSpeedKmh,
+    StageResult? result,
   });
+
+  @override
+  $StageResultCopyWith<$Res>? get result;
 }
 
 /// @nodoc
@@ -492,6 +535,9 @@ class __$$StageTelemetryImplCopyWithImpl<$Res>
     Object? status = null,
     Object? latitude = freezed,
     Object? longitude = freezed,
+    Object? maxSpeedKmh = null,
+    Object? minSpeedKmh = freezed,
+    Object? result = freezed,
   }) {
     return _then(
       _$StageTelemetryImpl(
@@ -519,6 +565,18 @@ class __$$StageTelemetryImplCopyWithImpl<$Res>
             ? _value.longitude
             : longitude // ignore: cast_nullable_to_non_nullable
                   as double?,
+        maxSpeedKmh: null == maxSpeedKmh
+            ? _value.maxSpeedKmh
+            : maxSpeedKmh // ignore: cast_nullable_to_non_nullable
+                  as double,
+        minSpeedKmh: freezed == minSpeedKmh
+            ? _value.minSpeedKmh
+            : minSpeedKmh // ignore: cast_nullable_to_non_nullable
+                  as double?,
+        result: freezed == result
+            ? _value.result
+            : result // ignore: cast_nullable_to_non_nullable
+                  as StageResult?,
       ),
     );
   }
@@ -534,6 +592,9 @@ class _$StageTelemetryImpl implements _StageTelemetry {
     this.status = StageStatus.idle,
     this.latitude,
     this.longitude,
+    this.maxSpeedKmh = 0.0,
+    this.minSpeedKmh,
+    this.result,
   });
 
   @override
@@ -551,10 +612,17 @@ class _$StageTelemetryImpl implements _StageTelemetry {
   final double? latitude;
   @override
   final double? longitude;
+  @override
+  @JsonKey()
+  final double maxSpeedKmh;
+  @override
+  final double? minSpeedKmh;
+  @override
+  final StageResult? result;
 
   @override
   String toString() {
-    return 'StageTelemetry(startTime: $startTime, currentDistance: $currentDistance, currentSpeed: $currentSpeed, status: $status, latitude: $latitude, longitude: $longitude)';
+    return 'StageTelemetry(startTime: $startTime, currentDistance: $currentDistance, currentSpeed: $currentSpeed, status: $status, latitude: $latitude, longitude: $longitude, maxSpeedKmh: $maxSpeedKmh, minSpeedKmh: $minSpeedKmh, result: $result)';
   }
 
   @override
@@ -572,7 +640,12 @@ class _$StageTelemetryImpl implements _StageTelemetry {
             (identical(other.latitude, latitude) ||
                 other.latitude == latitude) &&
             (identical(other.longitude, longitude) ||
-                other.longitude == longitude));
+                other.longitude == longitude) &&
+            (identical(other.maxSpeedKmh, maxSpeedKmh) ||
+                other.maxSpeedKmh == maxSpeedKmh) &&
+            (identical(other.minSpeedKmh, minSpeedKmh) ||
+                other.minSpeedKmh == minSpeedKmh) &&
+            (identical(other.result, result) || other.result == result));
   }
 
   @override
@@ -584,6 +657,9 @@ class _$StageTelemetryImpl implements _StageTelemetry {
     status,
     latitude,
     longitude,
+    maxSpeedKmh,
+    minSpeedKmh,
+    result,
   );
 
   /// Create a copy of StageTelemetry
@@ -606,6 +682,9 @@ abstract class _StageTelemetry implements StageTelemetry {
     final StageStatus status,
     final double? latitude,
     final double? longitude,
+    final double maxSpeedKmh,
+    final double? minSpeedKmh,
+    final StageResult? result,
   }) = _$StageTelemetryImpl;
 
   @override
@@ -620,12 +699,790 @@ abstract class _StageTelemetry implements StageTelemetry {
   double? get latitude;
   @override
   double? get longitude;
+  @override
+  double get maxSpeedKmh;
+  @override
+  double? get minSpeedKmh;
+  @override
+  StageResult? get result;
 
   /// Create a copy of StageTelemetry
   /// with the given fields replaced by the non-null parameter values.
   @override
   @JsonKey(includeFromJson: false, includeToJson: false)
   _$$StageTelemetryImplCopyWith<_$StageTelemetryImpl> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+mixin _$StageResult {
+  double get maxSpeedKmh => throw _privateConstructorUsedError;
+  double? get minSpeedKmh => throw _privateConstructorUsedError;
+  double get avgSpeedKmh => throw _privateConstructorUsedError;
+  double get totalDistanceKm => throw _privateConstructorUsedError;
+  int get elapsedSeconds => throw _privateConstructorUsedError;
+  DateTime? get completedAt => throw _privateConstructorUsedError;
+
+  /// Create a copy of StageResult
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  $StageResultCopyWith<StageResult> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+abstract class $StageResultCopyWith<$Res> {
+  factory $StageResultCopyWith(
+    StageResult value,
+    $Res Function(StageResult) then,
+  ) = _$StageResultCopyWithImpl<$Res, StageResult>;
+  @useResult
+  $Res call({
+    double maxSpeedKmh,
+    double? minSpeedKmh,
+    double avgSpeedKmh,
+    double totalDistanceKm,
+    int elapsedSeconds,
+    DateTime? completedAt,
+  });
+}
+
+/// @nodoc
+class _$StageResultCopyWithImpl<$Res, $Val extends StageResult>
+    implements $StageResultCopyWith<$Res> {
+  _$StageResultCopyWithImpl(this._value, this._then);
+
+  // ignore: unused_field
+  final $Val _value;
+  // ignore: unused_field
+  final $Res Function($Val) _then;
+
+  /// Create a copy of StageResult
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? maxSpeedKmh = null,
+    Object? minSpeedKmh = freezed,
+    Object? avgSpeedKmh = null,
+    Object? totalDistanceKm = null,
+    Object? elapsedSeconds = null,
+    Object? completedAt = freezed,
+  }) {
+    return _then(
+      _value.copyWith(
+            maxSpeedKmh: null == maxSpeedKmh
+                ? _value.maxSpeedKmh
+                : maxSpeedKmh // ignore: cast_nullable_to_non_nullable
+                      as double,
+            minSpeedKmh: freezed == minSpeedKmh
+                ? _value.minSpeedKmh
+                : minSpeedKmh // ignore: cast_nullable_to_non_nullable
+                      as double?,
+            avgSpeedKmh: null == avgSpeedKmh
+                ? _value.avgSpeedKmh
+                : avgSpeedKmh // ignore: cast_nullable_to_non_nullable
+                      as double,
+            totalDistanceKm: null == totalDistanceKm
+                ? _value.totalDistanceKm
+                : totalDistanceKm // ignore: cast_nullable_to_non_nullable
+                      as double,
+            elapsedSeconds: null == elapsedSeconds
+                ? _value.elapsedSeconds
+                : elapsedSeconds // ignore: cast_nullable_to_non_nullable
+                      as int,
+            completedAt: freezed == completedAt
+                ? _value.completedAt
+                : completedAt // ignore: cast_nullable_to_non_nullable
+                      as DateTime?,
+          )
+          as $Val,
+    );
+  }
+}
+
+/// @nodoc
+abstract class _$$StageResultImplCopyWith<$Res>
+    implements $StageResultCopyWith<$Res> {
+  factory _$$StageResultImplCopyWith(
+    _$StageResultImpl value,
+    $Res Function(_$StageResultImpl) then,
+  ) = __$$StageResultImplCopyWithImpl<$Res>;
+  @override
+  @useResult
+  $Res call({
+    double maxSpeedKmh,
+    double? minSpeedKmh,
+    double avgSpeedKmh,
+    double totalDistanceKm,
+    int elapsedSeconds,
+    DateTime? completedAt,
+  });
+}
+
+/// @nodoc
+class __$$StageResultImplCopyWithImpl<$Res>
+    extends _$StageResultCopyWithImpl<$Res, _$StageResultImpl>
+    implements _$$StageResultImplCopyWith<$Res> {
+  __$$StageResultImplCopyWithImpl(
+    _$StageResultImpl _value,
+    $Res Function(_$StageResultImpl) _then,
+  ) : super(_value, _then);
+
+  /// Create a copy of StageResult
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? maxSpeedKmh = null,
+    Object? minSpeedKmh = freezed,
+    Object? avgSpeedKmh = null,
+    Object? totalDistanceKm = null,
+    Object? elapsedSeconds = null,
+    Object? completedAt = freezed,
+  }) {
+    return _then(
+      _$StageResultImpl(
+        maxSpeedKmh: null == maxSpeedKmh
+            ? _value.maxSpeedKmh
+            : maxSpeedKmh // ignore: cast_nullable_to_non_nullable
+                  as double,
+        minSpeedKmh: freezed == minSpeedKmh
+            ? _value.minSpeedKmh
+            : minSpeedKmh // ignore: cast_nullable_to_non_nullable
+                  as double?,
+        avgSpeedKmh: null == avgSpeedKmh
+            ? _value.avgSpeedKmh
+            : avgSpeedKmh // ignore: cast_nullable_to_non_nullable
+                  as double,
+        totalDistanceKm: null == totalDistanceKm
+            ? _value.totalDistanceKm
+            : totalDistanceKm // ignore: cast_nullable_to_non_nullable
+                  as double,
+        elapsedSeconds: null == elapsedSeconds
+            ? _value.elapsedSeconds
+            : elapsedSeconds // ignore: cast_nullable_to_non_nullable
+                  as int,
+        completedAt: freezed == completedAt
+            ? _value.completedAt
+            : completedAt // ignore: cast_nullable_to_non_nullable
+                  as DateTime?,
+      ),
+    );
+  }
+}
+
+/// @nodoc
+
+class _$StageResultImpl extends _StageResult {
+  const _$StageResultImpl({
+    this.maxSpeedKmh = 0.0,
+    this.minSpeedKmh,
+    this.avgSpeedKmh = 0.0,
+    this.totalDistanceKm = 0.0,
+    this.elapsedSeconds = 0,
+    this.completedAt,
+  }) : super._();
+
+  @override
+  @JsonKey()
+  final double maxSpeedKmh;
+  @override
+  final double? minSpeedKmh;
+  @override
+  @JsonKey()
+  final double avgSpeedKmh;
+  @override
+  @JsonKey()
+  final double totalDistanceKm;
+  @override
+  @JsonKey()
+  final int elapsedSeconds;
+  @override
+  final DateTime? completedAt;
+
+  @override
+  String toString() {
+    return 'StageResult(maxSpeedKmh: $maxSpeedKmh, minSpeedKmh: $minSpeedKmh, avgSpeedKmh: $avgSpeedKmh, totalDistanceKm: $totalDistanceKm, elapsedSeconds: $elapsedSeconds, completedAt: $completedAt)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$StageResultImpl &&
+            (identical(other.maxSpeedKmh, maxSpeedKmh) ||
+                other.maxSpeedKmh == maxSpeedKmh) &&
+            (identical(other.minSpeedKmh, minSpeedKmh) ||
+                other.minSpeedKmh == minSpeedKmh) &&
+            (identical(other.avgSpeedKmh, avgSpeedKmh) ||
+                other.avgSpeedKmh == avgSpeedKmh) &&
+            (identical(other.totalDistanceKm, totalDistanceKm) ||
+                other.totalDistanceKm == totalDistanceKm) &&
+            (identical(other.elapsedSeconds, elapsedSeconds) ||
+                other.elapsedSeconds == elapsedSeconds) &&
+            (identical(other.completedAt, completedAt) ||
+                other.completedAt == completedAt));
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    runtimeType,
+    maxSpeedKmh,
+    minSpeedKmh,
+    avgSpeedKmh,
+    totalDistanceKm,
+    elapsedSeconds,
+    completedAt,
+  );
+
+  /// Create a copy of StageResult
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$StageResultImplCopyWith<_$StageResultImpl> get copyWith =>
+      __$$StageResultImplCopyWithImpl<_$StageResultImpl>(this, _$identity);
+}
+
+abstract class _StageResult extends StageResult {
+  const factory _StageResult({
+    final double maxSpeedKmh,
+    final double? minSpeedKmh,
+    final double avgSpeedKmh,
+    final double totalDistanceKm,
+    final int elapsedSeconds,
+    final DateTime? completedAt,
+  }) = _$StageResultImpl;
+  const _StageResult._() : super._();
+
+  @override
+  double get maxSpeedKmh;
+  @override
+  double? get minSpeedKmh;
+  @override
+  double get avgSpeedKmh;
+  @override
+  double get totalDistanceKm;
+  @override
+  int get elapsedSeconds;
+  @override
+  DateTime? get completedAt;
+
+  /// Create a copy of StageResult
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  _$$StageResultImplCopyWith<_$StageResultImpl> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+mixin _$StageRunHistory {
+  String get id => throw _privateConstructorUsedError;
+  String get stageId => throw _privateConstructorUsedError;
+  String get stageName => throw _privateConstructorUsedError;
+  String get competitionName => throw _privateConstructorUsedError;
+  DateTime? get startedAt => throw _privateConstructorUsedError;
+  DateTime? get completedAt => throw _privateConstructorUsedError;
+  double? get startLatitude => throw _privateConstructorUsedError;
+  double? get startLongitude => throw _privateConstructorUsedError;
+  double? get endLatitude => throw _privateConstructorUsedError;
+  double? get endLongitude => throw _privateConstructorUsedError;
+  double get targetAvgSpeed => throw _privateConstructorUsedError;
+  double get maxSpeedLimit => throw _privateConstructorUsedError;
+  double get maxSpeedKmh => throw _privateConstructorUsedError;
+  double? get minSpeedKmh => throw _privateConstructorUsedError;
+  double get avgSpeedKmh => throw _privateConstructorUsedError;
+  double get totalDistanceKm => throw _privateConstructorUsedError;
+  int get elapsedSeconds => throw _privateConstructorUsedError;
+
+  /// Create a copy of StageRunHistory
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  $StageRunHistoryCopyWith<StageRunHistory> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+abstract class $StageRunHistoryCopyWith<$Res> {
+  factory $StageRunHistoryCopyWith(
+    StageRunHistory value,
+    $Res Function(StageRunHistory) then,
+  ) = _$StageRunHistoryCopyWithImpl<$Res, StageRunHistory>;
+  @useResult
+  $Res call({
+    String id,
+    String stageId,
+    String stageName,
+    String competitionName,
+    DateTime? startedAt,
+    DateTime? completedAt,
+    double? startLatitude,
+    double? startLongitude,
+    double? endLatitude,
+    double? endLongitude,
+    double targetAvgSpeed,
+    double maxSpeedLimit,
+    double maxSpeedKmh,
+    double? minSpeedKmh,
+    double avgSpeedKmh,
+    double totalDistanceKm,
+    int elapsedSeconds,
+  });
+}
+
+/// @nodoc
+class _$StageRunHistoryCopyWithImpl<$Res, $Val extends StageRunHistory>
+    implements $StageRunHistoryCopyWith<$Res> {
+  _$StageRunHistoryCopyWithImpl(this._value, this._then);
+
+  // ignore: unused_field
+  final $Val _value;
+  // ignore: unused_field
+  final $Res Function($Val) _then;
+
+  /// Create a copy of StageRunHistory
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? id = null,
+    Object? stageId = null,
+    Object? stageName = null,
+    Object? competitionName = null,
+    Object? startedAt = freezed,
+    Object? completedAt = freezed,
+    Object? startLatitude = freezed,
+    Object? startLongitude = freezed,
+    Object? endLatitude = freezed,
+    Object? endLongitude = freezed,
+    Object? targetAvgSpeed = null,
+    Object? maxSpeedLimit = null,
+    Object? maxSpeedKmh = null,
+    Object? minSpeedKmh = freezed,
+    Object? avgSpeedKmh = null,
+    Object? totalDistanceKm = null,
+    Object? elapsedSeconds = null,
+  }) {
+    return _then(
+      _value.copyWith(
+            id: null == id
+                ? _value.id
+                : id // ignore: cast_nullable_to_non_nullable
+                      as String,
+            stageId: null == stageId
+                ? _value.stageId
+                : stageId // ignore: cast_nullable_to_non_nullable
+                      as String,
+            stageName: null == stageName
+                ? _value.stageName
+                : stageName // ignore: cast_nullable_to_non_nullable
+                      as String,
+            competitionName: null == competitionName
+                ? _value.competitionName
+                : competitionName // ignore: cast_nullable_to_non_nullable
+                      as String,
+            startedAt: freezed == startedAt
+                ? _value.startedAt
+                : startedAt // ignore: cast_nullable_to_non_nullable
+                      as DateTime?,
+            completedAt: freezed == completedAt
+                ? _value.completedAt
+                : completedAt // ignore: cast_nullable_to_non_nullable
+                      as DateTime?,
+            startLatitude: freezed == startLatitude
+                ? _value.startLatitude
+                : startLatitude // ignore: cast_nullable_to_non_nullable
+                      as double?,
+            startLongitude: freezed == startLongitude
+                ? _value.startLongitude
+                : startLongitude // ignore: cast_nullable_to_non_nullable
+                      as double?,
+            endLatitude: freezed == endLatitude
+                ? _value.endLatitude
+                : endLatitude // ignore: cast_nullable_to_non_nullable
+                      as double?,
+            endLongitude: freezed == endLongitude
+                ? _value.endLongitude
+                : endLongitude // ignore: cast_nullable_to_non_nullable
+                      as double?,
+            targetAvgSpeed: null == targetAvgSpeed
+                ? _value.targetAvgSpeed
+                : targetAvgSpeed // ignore: cast_nullable_to_non_nullable
+                      as double,
+            maxSpeedLimit: null == maxSpeedLimit
+                ? _value.maxSpeedLimit
+                : maxSpeedLimit // ignore: cast_nullable_to_non_nullable
+                      as double,
+            maxSpeedKmh: null == maxSpeedKmh
+                ? _value.maxSpeedKmh
+                : maxSpeedKmh // ignore: cast_nullable_to_non_nullable
+                      as double,
+            minSpeedKmh: freezed == minSpeedKmh
+                ? _value.minSpeedKmh
+                : minSpeedKmh // ignore: cast_nullable_to_non_nullable
+                      as double?,
+            avgSpeedKmh: null == avgSpeedKmh
+                ? _value.avgSpeedKmh
+                : avgSpeedKmh // ignore: cast_nullable_to_non_nullable
+                      as double,
+            totalDistanceKm: null == totalDistanceKm
+                ? _value.totalDistanceKm
+                : totalDistanceKm // ignore: cast_nullable_to_non_nullable
+                      as double,
+            elapsedSeconds: null == elapsedSeconds
+                ? _value.elapsedSeconds
+                : elapsedSeconds // ignore: cast_nullable_to_non_nullable
+                      as int,
+          )
+          as $Val,
+    );
+  }
+}
+
+/// @nodoc
+abstract class _$$StageRunHistoryImplCopyWith<$Res>
+    implements $StageRunHistoryCopyWith<$Res> {
+  factory _$$StageRunHistoryImplCopyWith(
+    _$StageRunHistoryImpl value,
+    $Res Function(_$StageRunHistoryImpl) then,
+  ) = __$$StageRunHistoryImplCopyWithImpl<$Res>;
+  @override
+  @useResult
+  $Res call({
+    String id,
+    String stageId,
+    String stageName,
+    String competitionName,
+    DateTime? startedAt,
+    DateTime? completedAt,
+    double? startLatitude,
+    double? startLongitude,
+    double? endLatitude,
+    double? endLongitude,
+    double targetAvgSpeed,
+    double maxSpeedLimit,
+    double maxSpeedKmh,
+    double? minSpeedKmh,
+    double avgSpeedKmh,
+    double totalDistanceKm,
+    int elapsedSeconds,
+  });
+}
+
+/// @nodoc
+class __$$StageRunHistoryImplCopyWithImpl<$Res>
+    extends _$StageRunHistoryCopyWithImpl<$Res, _$StageRunHistoryImpl>
+    implements _$$StageRunHistoryImplCopyWith<$Res> {
+  __$$StageRunHistoryImplCopyWithImpl(
+    _$StageRunHistoryImpl _value,
+    $Res Function(_$StageRunHistoryImpl) _then,
+  ) : super(_value, _then);
+
+  /// Create a copy of StageRunHistory
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? id = null,
+    Object? stageId = null,
+    Object? stageName = null,
+    Object? competitionName = null,
+    Object? startedAt = freezed,
+    Object? completedAt = freezed,
+    Object? startLatitude = freezed,
+    Object? startLongitude = freezed,
+    Object? endLatitude = freezed,
+    Object? endLongitude = freezed,
+    Object? targetAvgSpeed = null,
+    Object? maxSpeedLimit = null,
+    Object? maxSpeedKmh = null,
+    Object? minSpeedKmh = freezed,
+    Object? avgSpeedKmh = null,
+    Object? totalDistanceKm = null,
+    Object? elapsedSeconds = null,
+  }) {
+    return _then(
+      _$StageRunHistoryImpl(
+        id: null == id
+            ? _value.id
+            : id // ignore: cast_nullable_to_non_nullable
+                  as String,
+        stageId: null == stageId
+            ? _value.stageId
+            : stageId // ignore: cast_nullable_to_non_nullable
+                  as String,
+        stageName: null == stageName
+            ? _value.stageName
+            : stageName // ignore: cast_nullable_to_non_nullable
+                  as String,
+        competitionName: null == competitionName
+            ? _value.competitionName
+            : competitionName // ignore: cast_nullable_to_non_nullable
+                  as String,
+        startedAt: freezed == startedAt
+            ? _value.startedAt
+            : startedAt // ignore: cast_nullable_to_non_nullable
+                  as DateTime?,
+        completedAt: freezed == completedAt
+            ? _value.completedAt
+            : completedAt // ignore: cast_nullable_to_non_nullable
+                  as DateTime?,
+        startLatitude: freezed == startLatitude
+            ? _value.startLatitude
+            : startLatitude // ignore: cast_nullable_to_non_nullable
+                  as double?,
+        startLongitude: freezed == startLongitude
+            ? _value.startLongitude
+            : startLongitude // ignore: cast_nullable_to_non_nullable
+                  as double?,
+        endLatitude: freezed == endLatitude
+            ? _value.endLatitude
+            : endLatitude // ignore: cast_nullable_to_non_nullable
+                  as double?,
+        endLongitude: freezed == endLongitude
+            ? _value.endLongitude
+            : endLongitude // ignore: cast_nullable_to_non_nullable
+                  as double?,
+        targetAvgSpeed: null == targetAvgSpeed
+            ? _value.targetAvgSpeed
+            : targetAvgSpeed // ignore: cast_nullable_to_non_nullable
+                  as double,
+        maxSpeedLimit: null == maxSpeedLimit
+            ? _value.maxSpeedLimit
+            : maxSpeedLimit // ignore: cast_nullable_to_non_nullable
+                  as double,
+        maxSpeedKmh: null == maxSpeedKmh
+            ? _value.maxSpeedKmh
+            : maxSpeedKmh // ignore: cast_nullable_to_non_nullable
+                  as double,
+        minSpeedKmh: freezed == minSpeedKmh
+            ? _value.minSpeedKmh
+            : minSpeedKmh // ignore: cast_nullable_to_non_nullable
+                  as double?,
+        avgSpeedKmh: null == avgSpeedKmh
+            ? _value.avgSpeedKmh
+            : avgSpeedKmh // ignore: cast_nullable_to_non_nullable
+                  as double,
+        totalDistanceKm: null == totalDistanceKm
+            ? _value.totalDistanceKm
+            : totalDistanceKm // ignore: cast_nullable_to_non_nullable
+                  as double,
+        elapsedSeconds: null == elapsedSeconds
+            ? _value.elapsedSeconds
+            : elapsedSeconds // ignore: cast_nullable_to_non_nullable
+                  as int,
+      ),
+    );
+  }
+}
+
+/// @nodoc
+
+class _$StageRunHistoryImpl extends _StageRunHistory {
+  const _$StageRunHistoryImpl({
+    required this.id,
+    required this.stageId,
+    required this.stageName,
+    this.competitionName = '',
+    this.startedAt,
+    this.completedAt,
+    this.startLatitude,
+    this.startLongitude,
+    this.endLatitude,
+    this.endLongitude,
+    this.targetAvgSpeed = 0.0,
+    this.maxSpeedLimit = 0.0,
+    this.maxSpeedKmh = 0.0,
+    this.minSpeedKmh,
+    this.avgSpeedKmh = 0.0,
+    this.totalDistanceKm = 0.0,
+    this.elapsedSeconds = 0,
+  }) : super._();
+
+  @override
+  final String id;
+  @override
+  final String stageId;
+  @override
+  final String stageName;
+  @override
+  @JsonKey()
+  final String competitionName;
+  @override
+  final DateTime? startedAt;
+  @override
+  final DateTime? completedAt;
+  @override
+  final double? startLatitude;
+  @override
+  final double? startLongitude;
+  @override
+  final double? endLatitude;
+  @override
+  final double? endLongitude;
+  @override
+  @JsonKey()
+  final double targetAvgSpeed;
+  @override
+  @JsonKey()
+  final double maxSpeedLimit;
+  @override
+  @JsonKey()
+  final double maxSpeedKmh;
+  @override
+  final double? minSpeedKmh;
+  @override
+  @JsonKey()
+  final double avgSpeedKmh;
+  @override
+  @JsonKey()
+  final double totalDistanceKm;
+  @override
+  @JsonKey()
+  final int elapsedSeconds;
+
+  @override
+  String toString() {
+    return 'StageRunHistory(id: $id, stageId: $stageId, stageName: $stageName, competitionName: $competitionName, startedAt: $startedAt, completedAt: $completedAt, startLatitude: $startLatitude, startLongitude: $startLongitude, endLatitude: $endLatitude, endLongitude: $endLongitude, targetAvgSpeed: $targetAvgSpeed, maxSpeedLimit: $maxSpeedLimit, maxSpeedKmh: $maxSpeedKmh, minSpeedKmh: $minSpeedKmh, avgSpeedKmh: $avgSpeedKmh, totalDistanceKm: $totalDistanceKm, elapsedSeconds: $elapsedSeconds)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$StageRunHistoryImpl &&
+            (identical(other.id, id) || other.id == id) &&
+            (identical(other.stageId, stageId) || other.stageId == stageId) &&
+            (identical(other.stageName, stageName) ||
+                other.stageName == stageName) &&
+            (identical(other.competitionName, competitionName) ||
+                other.competitionName == competitionName) &&
+            (identical(other.startedAt, startedAt) ||
+                other.startedAt == startedAt) &&
+            (identical(other.completedAt, completedAt) ||
+                other.completedAt == completedAt) &&
+            (identical(other.startLatitude, startLatitude) ||
+                other.startLatitude == startLatitude) &&
+            (identical(other.startLongitude, startLongitude) ||
+                other.startLongitude == startLongitude) &&
+            (identical(other.endLatitude, endLatitude) ||
+                other.endLatitude == endLatitude) &&
+            (identical(other.endLongitude, endLongitude) ||
+                other.endLongitude == endLongitude) &&
+            (identical(other.targetAvgSpeed, targetAvgSpeed) ||
+                other.targetAvgSpeed == targetAvgSpeed) &&
+            (identical(other.maxSpeedLimit, maxSpeedLimit) ||
+                other.maxSpeedLimit == maxSpeedLimit) &&
+            (identical(other.maxSpeedKmh, maxSpeedKmh) ||
+                other.maxSpeedKmh == maxSpeedKmh) &&
+            (identical(other.minSpeedKmh, minSpeedKmh) ||
+                other.minSpeedKmh == minSpeedKmh) &&
+            (identical(other.avgSpeedKmh, avgSpeedKmh) ||
+                other.avgSpeedKmh == avgSpeedKmh) &&
+            (identical(other.totalDistanceKm, totalDistanceKm) ||
+                other.totalDistanceKm == totalDistanceKm) &&
+            (identical(other.elapsedSeconds, elapsedSeconds) ||
+                other.elapsedSeconds == elapsedSeconds));
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    runtimeType,
+    id,
+    stageId,
+    stageName,
+    competitionName,
+    startedAt,
+    completedAt,
+    startLatitude,
+    startLongitude,
+    endLatitude,
+    endLongitude,
+    targetAvgSpeed,
+    maxSpeedLimit,
+    maxSpeedKmh,
+    minSpeedKmh,
+    avgSpeedKmh,
+    totalDistanceKm,
+    elapsedSeconds,
+  );
+
+  /// Create a copy of StageRunHistory
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$StageRunHistoryImplCopyWith<_$StageRunHistoryImpl> get copyWith =>
+      __$$StageRunHistoryImplCopyWithImpl<_$StageRunHistoryImpl>(
+        this,
+        _$identity,
+      );
+}
+
+abstract class _StageRunHistory extends StageRunHistory {
+  const factory _StageRunHistory({
+    required final String id,
+    required final String stageId,
+    required final String stageName,
+    final String competitionName,
+    final DateTime? startedAt,
+    final DateTime? completedAt,
+    final double? startLatitude,
+    final double? startLongitude,
+    final double? endLatitude,
+    final double? endLongitude,
+    final double targetAvgSpeed,
+    final double maxSpeedLimit,
+    final double maxSpeedKmh,
+    final double? minSpeedKmh,
+    final double avgSpeedKmh,
+    final double totalDistanceKm,
+    final int elapsedSeconds,
+  }) = _$StageRunHistoryImpl;
+  const _StageRunHistory._() : super._();
+
+  @override
+  String get id;
+  @override
+  String get stageId;
+  @override
+  String get stageName;
+  @override
+  String get competitionName;
+  @override
+  DateTime? get startedAt;
+  @override
+  DateTime? get completedAt;
+  @override
+  double? get startLatitude;
+  @override
+  double? get startLongitude;
+  @override
+  double? get endLatitude;
+  @override
+  double? get endLongitude;
+  @override
+  double get targetAvgSpeed;
+  @override
+  double get maxSpeedLimit;
+  @override
+  double get maxSpeedKmh;
+  @override
+  double? get minSpeedKmh;
+  @override
+  double get avgSpeedKmh;
+  @override
+  double get totalDistanceKm;
+  @override
+  int get elapsedSeconds;
+
+  /// Create a copy of StageRunHistory
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  _$$StageRunHistoryImplCopyWith<_$StageRunHistoryImpl> get copyWith =>
       throw _privateConstructorUsedError;
 }
 
@@ -841,6 +1698,12 @@ mixin _$PlannedStage {
   /// Crew-entered total allocated time (seconds). 0 = not set.
   int get allocatedTimeSeconds => throw _privateConstructorUsedError;
 
+  /// Captured result once the stage has finished (max/min/avg real speed,
+  /// distance, elapsed, completion time). `null` while the stage hasn't
+  /// been stopped yet. One-way migration: older payloads omit this and load
+  /// as `null`.
+  StageResult? get result => throw _privateConstructorUsedError;
+
   /// Create a copy of PlannedStage
   /// with the given fields replaced by the non-null parameter values.
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -872,7 +1735,10 @@ abstract class $PlannedStageCopyWith<$Res> {
     bool autoStop,
     double totalDistanceKm,
     int allocatedTimeSeconds,
+    StageResult? result,
   });
+
+  $StageResultCopyWith<$Res>? get result;
 }
 
 /// @nodoc
@@ -906,6 +1772,7 @@ class _$PlannedStageCopyWithImpl<$Res, $Val extends PlannedStage>
     Object? autoStop = null,
     Object? totalDistanceKm = null,
     Object? allocatedTimeSeconds = null,
+    Object? result = freezed,
   }) {
     return _then(
       _value.copyWith(
@@ -973,9 +1840,27 @@ class _$PlannedStageCopyWithImpl<$Res, $Val extends PlannedStage>
                 ? _value.allocatedTimeSeconds
                 : allocatedTimeSeconds // ignore: cast_nullable_to_non_nullable
                       as int,
+            result: freezed == result
+                ? _value.result
+                : result // ignore: cast_nullable_to_non_nullable
+                      as StageResult?,
           )
           as $Val,
     );
+  }
+
+  /// Create a copy of PlannedStage
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @pragma('vm:prefer-inline')
+  $StageResultCopyWith<$Res>? get result {
+    if (_value.result == null) {
+      return null;
+    }
+
+    return $StageResultCopyWith<$Res>(_value.result!, (value) {
+      return _then(_value.copyWith(result: value) as $Val);
+    });
   }
 }
 
@@ -1005,7 +1890,11 @@ abstract class _$$PlannedStageImplCopyWith<$Res>
     bool autoStop,
     double totalDistanceKm,
     int allocatedTimeSeconds,
+    StageResult? result,
   });
+
+  @override
+  $StageResultCopyWith<$Res>? get result;
 }
 
 /// @nodoc
@@ -1038,6 +1927,7 @@ class __$$PlannedStageImplCopyWithImpl<$Res>
     Object? autoStop = null,
     Object? totalDistanceKm = null,
     Object? allocatedTimeSeconds = null,
+    Object? result = freezed,
   }) {
     return _then(
       _$PlannedStageImpl(
@@ -1105,6 +1995,10 @@ class __$$PlannedStageImplCopyWithImpl<$Res>
             ? _value.allocatedTimeSeconds
             : allocatedTimeSeconds // ignore: cast_nullable_to_non_nullable
                   as int,
+        result: freezed == result
+            ? _value.result
+            : result // ignore: cast_nullable_to_non_nullable
+                  as StageResult?,
       ),
     );
   }
@@ -1130,6 +2024,7 @@ class _$PlannedStageImpl extends _PlannedStage {
     this.autoStop = true,
     this.totalDistanceKm = 0.0,
     this.allocatedTimeSeconds = 0,
+    this.result,
   }) : super._();
 
   @override
@@ -1184,9 +2079,16 @@ class _$PlannedStageImpl extends _PlannedStage {
   @JsonKey()
   final int allocatedTimeSeconds;
 
+  /// Captured result once the stage has finished (max/min/avg real speed,
+  /// distance, elapsed, completion time). `null` while the stage hasn't
+  /// been stopped yet. One-way migration: older payloads omit this and load
+  /// as `null`.
+  @override
+  final StageResult? result;
+
   @override
   String toString() {
-    return 'PlannedStage(id: $id, name: $name, startTime: $startTime, targetAvgSpeed: $targetAvgSpeed, maxSpeedLimit: $maxSpeedLimit, latitude: $latitude, longitude: $longitude, geofenceRadiusM: $geofenceRadiusM, autoStart: $autoStart, started: $started, endLatitude: $endLatitude, endLongitude: $endLongitude, endGeofenceRadiusM: $endGeofenceRadiusM, autoStop: $autoStop, totalDistanceKm: $totalDistanceKm, allocatedTimeSeconds: $allocatedTimeSeconds)';
+    return 'PlannedStage(id: $id, name: $name, startTime: $startTime, targetAvgSpeed: $targetAvgSpeed, maxSpeedLimit: $maxSpeedLimit, latitude: $latitude, longitude: $longitude, geofenceRadiusM: $geofenceRadiusM, autoStart: $autoStart, started: $started, endLatitude: $endLatitude, endLongitude: $endLongitude, endGeofenceRadiusM: $endGeofenceRadiusM, autoStop: $autoStop, totalDistanceKm: $totalDistanceKm, allocatedTimeSeconds: $allocatedTimeSeconds, result: $result)';
   }
 
   @override
@@ -1222,7 +2124,8 @@ class _$PlannedStageImpl extends _PlannedStage {
             (identical(other.totalDistanceKm, totalDistanceKm) ||
                 other.totalDistanceKm == totalDistanceKm) &&
             (identical(other.allocatedTimeSeconds, allocatedTimeSeconds) ||
-                other.allocatedTimeSeconds == allocatedTimeSeconds));
+                other.allocatedTimeSeconds == allocatedTimeSeconds) &&
+            (identical(other.result, result) || other.result == result));
   }
 
   @override
@@ -1244,6 +2147,7 @@ class _$PlannedStageImpl extends _PlannedStage {
     autoStop,
     totalDistanceKm,
     allocatedTimeSeconds,
+    result,
   );
 
   /// Create a copy of PlannedStage
@@ -1273,6 +2177,7 @@ abstract class _PlannedStage extends PlannedStage {
     final bool autoStop,
     final double totalDistanceKm,
     final int allocatedTimeSeconds,
+    final StageResult? result,
   }) = _$PlannedStageImpl;
   const _PlannedStage._() : super._();
 
@@ -1319,6 +2224,13 @@ abstract class _PlannedStage extends PlannedStage {
   @override
   int get allocatedTimeSeconds;
 
+  /// Captured result once the stage has finished (max/min/avg real speed,
+  /// distance, elapsed, completion time). `null` while the stage hasn't
+  /// been stopped yet. One-way migration: older payloads omit this and load
+  /// as `null`.
+  @override
+  StageResult? get result;
+
   /// Create a copy of PlannedStage
   /// with the given fields replaced by the non-null parameter values.
   @override
@@ -1351,6 +2263,11 @@ mixin _$Competition {
   int get categoryStanding => throw _privateConstructorUsedError;
   List<PlannedStage> get stages => throw _privateConstructorUsedError;
 
+  /// Append-only log of finished stage runs for this competition, newest at
+  /// the end (the UI sorts descending by [StageRunHistory.completedAt]).
+  /// One-way migration: older payloads omit `history` and load as `[]`.
+  List<StageRunHistory> get history => throw _privateConstructorUsedError;
+
   /// Create a copy of Competition
   /// with the given fields replaced by the non-null parameter values.
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -1382,6 +2299,7 @@ abstract class $CompetitionCopyWith<$Res> {
     int overallStanding,
     int categoryStanding,
     List<PlannedStage> stages,
+    List<StageRunHistory> history,
   });
 }
 
@@ -1416,6 +2334,7 @@ class _$CompetitionCopyWithImpl<$Res, $Val extends Competition>
     Object? overallStanding = null,
     Object? categoryStanding = null,
     Object? stages = null,
+    Object? history = null,
   }) {
     return _then(
       _value.copyWith(
@@ -1483,6 +2402,10 @@ class _$CompetitionCopyWithImpl<$Res, $Val extends Competition>
                 ? _value.stages
                 : stages // ignore: cast_nullable_to_non_nullable
                       as List<PlannedStage>,
+            history: null == history
+                ? _value.history
+                : history // ignore: cast_nullable_to_non_nullable
+                      as List<StageRunHistory>,
           )
           as $Val,
     );
@@ -1515,6 +2438,7 @@ abstract class _$$CompetitionImplCopyWith<$Res>
     int overallStanding,
     int categoryStanding,
     List<PlannedStage> stages,
+    List<StageRunHistory> history,
   });
 }
 
@@ -1548,6 +2472,7 @@ class __$$CompetitionImplCopyWithImpl<$Res>
     Object? overallStanding = null,
     Object? categoryStanding = null,
     Object? stages = null,
+    Object? history = null,
   }) {
     return _then(
       _$CompetitionImpl(
@@ -1615,6 +2540,10 @@ class __$$CompetitionImplCopyWithImpl<$Res>
             ? _value._stages
             : stages // ignore: cast_nullable_to_non_nullable
                   as List<PlannedStage>,
+        history: null == history
+            ? _value._history
+            : history // ignore: cast_nullable_to_non_nullable
+                  as List<StageRunHistory>,
       ),
     );
   }
@@ -1640,7 +2569,9 @@ class _$CompetitionImpl extends _Competition {
     this.overallStanding = 0,
     this.categoryStanding = 0,
     final List<PlannedStage> stages = const <PlannedStage>[],
+    final List<StageRunHistory> history = const <StageRunHistory>[],
   }) : _stages = stages,
+       _history = history,
        super._();
 
   @override
@@ -1698,9 +2629,25 @@ class _$CompetitionImpl extends _Competition {
     return EqualUnmodifiableListView(_stages);
   }
 
+  /// Append-only log of finished stage runs for this competition, newest at
+  /// the end (the UI sorts descending by [StageRunHistory.completedAt]).
+  /// One-way migration: older payloads omit `history` and load as `[]`.
+  final List<StageRunHistory> _history;
+
+  /// Append-only log of finished stage runs for this competition, newest at
+  /// the end (the UI sorts descending by [StageRunHistory.completedAt]).
+  /// One-way migration: older payloads omit `history` and load as `[]`.
+  @override
+  @JsonKey()
+  List<StageRunHistory> get history {
+    if (_history is EqualUnmodifiableListView) return _history;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_history);
+  }
+
   @override
   String toString() {
-    return 'Competition(id: $id, name: $name, location: $location, startDate: $startDate, endDate: $endDate, pilot: $pilot, copilot: $copilot, car: $car, category: $category, totalTeams: $totalTeams, contactPerson: $contactPerson, contactPhone: $contactPhone, cost: $cost, overallStanding: $overallStanding, categoryStanding: $categoryStanding, stages: $stages)';
+    return 'Competition(id: $id, name: $name, location: $location, startDate: $startDate, endDate: $endDate, pilot: $pilot, copilot: $copilot, car: $car, category: $category, totalTeams: $totalTeams, contactPerson: $contactPerson, contactPhone: $contactPhone, cost: $cost, overallStanding: $overallStanding, categoryStanding: $categoryStanding, stages: $stages, history: $history)';
   }
 
   @override
@@ -1731,7 +2678,8 @@ class _$CompetitionImpl extends _Competition {
                 other.overallStanding == overallStanding) &&
             (identical(other.categoryStanding, categoryStanding) ||
                 other.categoryStanding == categoryStanding) &&
-            const DeepCollectionEquality().equals(other._stages, _stages));
+            const DeepCollectionEquality().equals(other._stages, _stages) &&
+            const DeepCollectionEquality().equals(other._history, _history));
   }
 
   @override
@@ -1753,6 +2701,7 @@ class _$CompetitionImpl extends _Competition {
     overallStanding,
     categoryStanding,
     const DeepCollectionEquality().hash(_stages),
+    const DeepCollectionEquality().hash(_history),
   );
 
   /// Create a copy of Competition
@@ -1782,6 +2731,7 @@ abstract class _Competition extends Competition {
     final int overallStanding,
     final int categoryStanding,
     final List<PlannedStage> stages,
+    final List<StageRunHistory> history,
   }) = _$CompetitionImpl;
   const _Competition._() : super._();
 
@@ -1822,6 +2772,12 @@ abstract class _Competition extends Competition {
   int get categoryStanding;
   @override
   List<PlannedStage> get stages;
+
+  /// Append-only log of finished stage runs for this competition, newest at
+  /// the end (the UI sorts descending by [StageRunHistory.completedAt]).
+  /// One-way migration: older payloads omit `history` and load as `[]`.
+  @override
+  List<StageRunHistory> get history;
 
   /// Create a copy of Competition
   /// with the given fields replaced by the non-null parameter values.

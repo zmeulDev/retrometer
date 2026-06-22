@@ -24,6 +24,7 @@ class DeltaIndicator extends ConsumerWidget {
     final speed = ref.watch(
       stageControllerProvider.select((s) => s.telemetry.currentSpeed),
     );
+    final avgReal = ref.watch(actualAvgSpeedProvider);
 
     final Color bgColor;
     final Color fgColor;
@@ -77,9 +78,15 @@ class DeltaIndicator extends ConsumerWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '$name   ·   țintă ${_fmtSpeed(target)} / '
-                      'viteza ${speed.toStringAsFixed(0)} km/h',
+                      'țintă ${_fmtSpeed(target)} / '
+                      'reală ${avgReal == null ? '—' : _fmtSpeed(avgReal)} / '
+                      'acum ${speed.toStringAsFixed(0)} km/h',
                       style: RetrometerTextStyles.deltaSubtitle,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      name,
+                      style: RetrometerTextStyles.deltaStageName,
                     ),
                   ],
                 ),

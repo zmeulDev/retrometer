@@ -28,6 +28,9 @@ class CockpitTopBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Keep the auto-start monitor alive while the cockpit is mounted.
     ref.watch(autoStartMonitorProvider);
+    // Keep the stage-result persister alive while the cockpit is mounted so a
+    // finished stage's max/min/avg snapshot is written onto its planned stage.
+    ref.watch(stageResultPersisterProvider);
     final elapsed = ref.watch(elapsedSecondsProvider);
     final status = ref.watch(
       stageControllerProvider.select((s) => s.telemetry.status),
@@ -280,37 +283,60 @@ class _CardBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.location_on,
-                color: RetrometerColors.primary, size: 18),
-            const SizedBox(width: 6),
-            Flexible(
-              child: Text(
-                locality,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: RetrometerTextStyles.topBarText(),
-              ),
+    // The body slot (Expanded in _topBarCard) can be short in landscape, where
+    // the top bar zone is ~25% of the screen height and the body slot ends up
+    // only ~36px tall. The Column's natural height (locality row + 6px gap +
+    // 30px elapsed text ≈ 54px) would overflow that slot.
+    //
+    // FittedBox(scaleDown) lays out its child at natural size and then shrinks
+    // it to fit, so the block never overflows; in portrait where the slot is
+    // roomy it stays at natural size and the elapsed time remains prominent.
+    // FittedBox passes unbounded width to its child, so we wrap the Column in a
+    // SizedBox bounded to the slot width — that keeps the locality Row's
+    // Flexible able to ellipsize long names instead of forcing the whole block
+    // wider.
+    return LayoutBuilder(
+      builder: (context, c) {
+        final width = c.maxWidth.isFinite ? c.maxWidth : 400.0;
+        return FittedBox(
+          fit: BoxFit.scaleDown,
+          child: SizedBox(
+            width: width,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.location_on,
+                        color: RetrometerColors.primary, size: 18),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        locality,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: RetrometerTextStyles.topBarText(),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  _formatElapsed(elapsed),
+                  style: const TextStyle(
+                    color: RetrometerColors.textPrimary,
+                    fontSize: 30,
+                    fontWeight: FontWeight.bold,
+                    fontFeatures: [FontFeature.tabularFigures()],
+                    height: 1,
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        Text(
-          _formatElapsed(elapsed),
-          style: const TextStyle(
-            color: RetrometerColors.textPrimary,
-            fontSize: 30,
-            fontWeight: FontWeight.bold,
-            fontFeatures: [FontFeature.tabularFigures()],
-            height: 1,
           ),
-        ),
-      ],
+        );
+      },
     );
   }
 }

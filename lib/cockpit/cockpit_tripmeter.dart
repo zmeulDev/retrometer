@@ -120,21 +120,28 @@ class DistanceReadout extends ConsumerWidget {
       ),
       alignment: Alignment.center,
       padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              distance.toStringAsFixed(2),
-              style: RetrometerTextStyles.distanceNumber,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // The number gets its own FittedBox (inside a loose Flexible so it
+          // can also shrink to fit the slot's height) — it scales down for
+          // large values (100.00, 999.99) without also shrinking the "km" unit
+          // below, which stays a legible fixed size.
+          Flexible(
+            fit: FlexFit.loose,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                distance.toStringAsFixed(2),
+                style: RetrometerTextStyles.distanceNumber,
+              ),
             ),
-            const Text(
-              'km',
-              style: RetrometerTextStyles.distanceUnit,
-            ),
-          ],
-        ),
+          ),
+          const Text(
+            'km',
+            style: RetrometerTextStyles.distanceUnit,
+          ),
+        ],
       ),
     );
   }

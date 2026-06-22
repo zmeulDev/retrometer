@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geocoding/geocoding.dart';
@@ -61,6 +62,9 @@ class StageController extends Notifier<RallyState> {
         currentDistance: 0.0,
         currentSpeed: 0.0,
         status: StageStatus.inProgress,
+        maxSpeedKmh: 0.0,
+        minSpeedKmh: null,
+        result: null,
       ),
     );
 
@@ -124,12 +128,19 @@ class StageController extends Notifier<RallyState> {
       final hadPreviousFix = last != null;
       last = pos;
 
+      final newMax = math.max(telemetry.maxSpeedKmh, speedKmh);
+      final newMin = telemetry.minSpeedKmh == null
+          ? speedKmh
+          : math.min(telemetry.minSpeedKmh!, speedKmh);
+
       state = state.copyWith(
         telemetry: telemetry.copyWith(
           currentDistance: telemetry.currentDistance + addedMetres / 1000.0,
           currentSpeed: speedKmh,
           latitude: pos.latitude,
           longitude: pos.longitude,
+          maxSpeedKmh: newMax,
+          minSpeedKmh: newMin,
         ),
       );
 
@@ -156,15 +167,40 @@ class StageController extends Notifier<RallyState> {
     });
   }
 
-  /// Stop the stage: cancel GPS, release wakelock, mark completed. Distance
-  /// and start time are retained for review.
+  /// Stop the stage: cancel GPS, release wakelock, snapshot the result
+  /// (max/min/avg speed, distance, elapsed, completion time) onto telemetry,
+  /// and mark completed. The result-persister provider picks up the snapshot
+  /// and writes it onto the owning planned stage. Distance and start time are
+  /// retained for review.
   void stopStage() {
     if (telemetry.status != StageStatus.inProgress) return;
     _positionSub?.cancel();
     _positionSub = null;
     ref.read(deviceServiceProvider).disableWakelock();
+    final result = _buildResult();
     state = state.copyWith(
-      telemetry: telemetry.copyWith(status: StageStatus.completed),
+      telemetry: telemetry.copyWith(
+        status: StageStatus.completed,
+        result: result,
+      ),
+    );
+  }
+
+  /// Snapshot a [StageResult] from the current telemetry: avg = totalDistance /
+  /// elapsedHours (physically correct, no float drift); max/min from the live
+  /// aggregates; elapsed from startTime to now.
+  StageResult _buildResult() {
+    final t = telemetry;
+    final start = t.startTime;
+    final elapsed = start == null ? 0 : DateTime.now().difference(start).inSeconds;
+    final avg = elapsed > 0 ? t.currentDistance / (elapsed / 3600.0) : 0.0;
+    return StageResult(
+      maxSpeedKmh: t.maxSpeedKmh,
+      minSpeedKmh: t.minSpeedKmh,
+      avgSpeedKmh: avg,
+      totalDistanceKm: t.currentDistance,
+      elapsedSeconds: elapsed,
+      completedAt: DateTime.now(),
     );
   }
 
@@ -252,6 +288,18 @@ final isOverSpeedProvider = Provider<bool>((ref) {
     stageControllerProvider.select((s) => s.config.maxSpeedLimit),
   );
   return speed > max;
+});
+
+/// Real average speed (km/h) over the stage so far — `totalDistanceKm /
+/// elapsedHours`. `null` while no time has elapsed (before the first second
+/// tick), so the UI can show "—". Narrow `select`s keep rebuilds bounded.
+final actualAvgSpeedProvider = Provider<double?>((ref) {
+  final distance = ref.watch(
+    stageControllerProvider.select((s) => s.telemetry.currentDistance),
+  );
+  final elapsed = ref.watch(elapsedSecondsProvider);
+  if (elapsed <= 0) return null;
+  return distance / (elapsed / 3600.0);
 });
 
 String _pickLocality(Placemark p) {

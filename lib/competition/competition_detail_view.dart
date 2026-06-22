@@ -84,12 +84,26 @@ class CompetitionDetailScreen extends ConsumerWidget {
                 if (c != 0) return c;
                 return a.id.compareTo(b.id); // stable tiebreaker
               });
+            // History, most-recent first (nulls last). Built once per rebuild.
+            final hist = [...competition.history]
+              ..sort((a, b) {
+                final ca = a.completedAt ??
+                    DateTime.fromMillisecondsSinceEpoch(0);
+                final cb = b.completedAt ??
+                    DateTime.fromMillisecondsSinceEpoch(0);
+                return cb.compareTo(ca);
+              });
+            final hasHistory = hist.isNotEmpty;
+            final stageCount = sorted.length;
+            final historyHeaderCount =
+                hasHistory ? 1 + hist.length : 0;
+            final totalCount = stageCount + historyHeaderCount;
             return Column(
               children: [
                 _CompetitionHeader(competition: competition),
                 const _MonitorStatusBar(),
                 Expanded(
-                  child: sorted.isEmpty
+                  child: sorted.isEmpty && !hasHistory
                       ? const EmptyState(
                           icon: Icons.event_note,
                           message: 'Niciun stagiu în această competiție.\n'
@@ -97,13 +111,22 @@ class CompetitionDetailScreen extends ConsumerWidget {
                         )
                       : ListView.separated(
                           padding: const EdgeInsets.fromLTRB(12, 4, 12, 96),
-                          itemCount: sorted.length,
+                          itemCount: totalCount,
                           separatorBuilder: (_, _) =>
                               const SizedBox(height: 10),
-                          itemBuilder: (context, i) => _StageTile(
-                            competitionId: competition.id,
-                            stage: sorted[i],
-                          ),
+                          itemBuilder: (context, i) {
+                            if (i < stageCount) {
+                              return _StageTile(
+                                competitionId: competition.id,
+                                stage: sorted[i],
+                              );
+                            }
+                            final h = i - stageCount;
+                            if (h == 0) {
+                              return const _HistoryHeader();
+                            }
+                            return _HistoryTile(entry: hist[h - 1]);
+                          },
                         ),
                 ),
               ],
@@ -351,6 +374,16 @@ class _StageTile extends ConsumerWidget {
                     '${stage.autoStart ? ' · auto-start' : ' · manual'}',
                     style: RetrometerTextStyles.metaMuted,
                   ),
+                  if (stage.result != null) ...[
+                    const SizedBox(height: 4),
+                    InfoLine(
+                      icon: Icons.leaderboard,
+                      text: 'rezultat: max ${_fmtSpeed(stage.result!.maxSpeedKmh)} / '
+                          'min ${stage.result!.minSpeedKmh == null ? '—' : _fmtSpeed(stage.result!.minSpeedKmh!)} / '
+                          'med ${_fmtSpeed(stage.result!.avgSpeedKmh)} km/h',
+                      iconColor: RetrometerColors.primary,
+                    ),
+                  ],
                   if (stage.endLatitude != null && stage.endLongitude != null) ...[
                     const SizedBox(height: 4),
                     InfoLine(
@@ -433,4 +466,100 @@ String _fmtMmSs(int totalSeconds) {
   final s = totalSeconds % 60;
   String two(int n) => n.toString().padLeft(2, '0');
   return '${two(m)}:${two(s)}';
+}
+
+// ---------------------------------------------------------------------------
+// History section (per-competition stage run log).
+// ---------------------------------------------------------------------------
+
+/// Section header for the per-competition history log. Read-only.
+class _HistoryHeader extends StatelessWidget {
+  const _HistoryHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 12, 4, 2),
+      child: Text('Istoric etape', style: RetrometerTextStyles.headerTitle),
+    );
+  }
+}
+
+/// A single finished stage run, shown read-only in the competition detail's
+/// history section. Mirrors [_StageTile]'s visual structure but without
+/// actions (no edit/delete/start).
+class _HistoryTile extends StatelessWidget {
+  const _HistoryTile({required this.entry});
+
+  final StageRunHistory entry;
+
+  @override
+  Widget build(BuildContext context) {
+    return TappableCard(
+      onTap: null,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              entry.stageName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: RetrometerTextStyles.tileTitle,
+            ),
+            if (entry.competitionName.isNotEmpty) ...[
+              const SizedBox(height: 2),
+              Text(
+                entry.competitionName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: RetrometerTextStyles.metaMuted,
+              ),
+            ],
+            const SizedBox(height: 6),
+            InfoLine(
+              icon: Icons.schedule,
+              text:
+                  '${formatDateTime(entry.startedAt)} → ${formatDateTime(entry.completedAt)}',
+            ),
+            if (entry.startLatitude != null &&
+                entry.startLongitude != null) ...[
+              const SizedBox(height: 4),
+              InfoLine(
+                icon: Icons.location_on,
+                text:
+                    '${entry.startLatitude!.toStringAsFixed(5)}, ${entry.startLongitude!.toStringAsFixed(5)}',
+              ),
+            ],
+            if (entry.endLatitude != null && entry.endLongitude != null) ...[
+              const SizedBox(height: 4),
+              InfoLine(
+                icon: Icons.flag,
+                text:
+                    '${entry.endLatitude!.toStringAsFixed(5)}, ${entry.endLongitude!.toStringAsFixed(5)}',
+              ),
+            ],
+            const SizedBox(height: 4),
+            Text(
+              'max ${_fmtSpeed(entry.maxSpeedKmh)} / '
+              'min ${entry.minSpeedKmh == null ? '—' : _fmtSpeed(entry.minSpeedKmh!)} / '
+              'med ${_fmtSpeed(entry.avgSpeedKmh)} km/h',
+              style: RetrometerTextStyles.metaMuted,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              [
+                'țintă ${_fmtSpeed(entry.targetAvgSpeed)} / '
+                    'max ${_fmtSpeed(entry.maxSpeedLimit)} km/h',
+                '${entry.totalDistanceKm.toStringAsFixed(2)} km',
+                'timp ${_fmtMmSs(entry.elapsedSeconds)}',
+              ].join(' · '),
+              style: RetrometerTextStyles.metaMuted,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

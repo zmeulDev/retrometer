@@ -12,14 +12,15 @@ import '../theme/retrometer_theme.dart';
 class TappableCard extends StatelessWidget {
   const TappableCard({
     super.key,
-    required this.onTap,
+    this.onTap,
     required this.child,
     this.color,
     this.radius = 14,
     this.border,
   });
 
-  final VoidCallback onTap;
+  /// Tap handler. `null` makes the card read-only (no ripple, no cursor).
+  final VoidCallback? onTap;
   final Widget child;
   final Color? color;
   final double radius;

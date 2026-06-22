@@ -188,6 +188,43 @@ class CompetitionNotifier extends AsyncNotifier<List<Competition>> {
     state = AsyncData(next);
     await _persist(next);
   }
+
+  /// Persist a finished stage's captured [result] onto its planned stage. Searched
+  /// by stage id across all competitions (the running stage knows its config id,
+  /// not which competition owns it). No-op if the stage isn't found in any
+  /// competition (e.g. an ad-hoc stage started from the cockpit without a plan).
+  Future<void> markResult(String stageId, StageResult result) async {
+    final current = state.valueOrNull ?? const <Competition>[];
+    final next = <Competition>[
+      for (final c in current)
+        c.copyWith(
+          stages: [
+            for (final s in c.stages)
+              if (s.id == stageId) s.copyWith(result: result) else s,
+          ],
+        ),
+    ];
+    state = AsyncData(next);
+    await _persist(next);
+  }
+
+  /// Append a finished stage's run to the owning competition's history log.
+  /// Searched by stage id across all competitions (the running stage knows its
+  /// config id, not which competition owns it). No-op for ad-hoc stages whose id
+  /// isn't in any competition (same convention as [markResult]).
+  Future<void> appendHistory(String stageId, StageRunHistory entry) async {
+    final current = state.valueOrNull ?? const <Competition>[];
+    final next = <Competition>[
+      for (final c in current)
+        c.copyWith(
+          history: c.stages.any((s) => s.id == stageId)
+              ? [...c.history, entry]
+              : c.history,
+        ),
+    ];
+    state = AsyncData(next);
+    await _persist(next);
+  }
 }
 
 /// Provider for the persisted list of competitions.
@@ -701,3 +738,65 @@ String _hm(DateTime? dt) {
 /// cockpit (its value carries diagnostics shown in the competition screens).
 final autoStartMonitorProvider =
     NotifierProvider<AutoStartMonitor, AutoStartStatus>(AutoStartMonitor.new);
+
+/// Persists a finished stage's captured result onto its owning planned stage,
+/// and appends a [StageRunHistory] entry to the owning competition's history
+/// log. Listens for [StageController]'s telemetry status flipping `inProgress →
+/// completed` with a non-null `result`, then writes it via
+/// [CompetitionNotifier.markResult] and appends the history entry via
+/// [CompetitionNotifier.appendHistory]. The cockpit keeps this alive by
+/// `ref.watch`-ing it (alongside the auto-start monitor). No-op for ad-hoc
+/// stages whose config id isn't in any competition.
+final stageResultPersisterProvider = Provider<void>((ref) {
+  ref.listen<StageStatus>(
+    stageControllerProvider.select((s) => s.telemetry.status),
+    (previous, next) {
+      final wasRunning = previous == StageStatus.inProgress;
+      if (!wasRunning || next != StageStatus.completed) return;
+      final rally = ref.read(stageControllerProvider);
+      final result = rally.telemetry.result;
+      final stageId = rally.config.id;
+      if (result == null || stageId.isEmpty) return;
+      // Fire-and-forget; persistence is best-effort and must not block the UI.
+      final notifier = ref.read(competitionsProvider.notifier);
+      notifier.markResult(stageId, result);
+
+      // Build a history entry. Look up the owning competition + planned stage to
+      // snapshot the competition name and the stage's planned start coords.
+      final comps =
+          ref.read(competitionsProvider).valueOrNull ?? const <Competition>[];
+      String competitionName = '';
+      double? startLatitude;
+      double? startLongitude;
+      for (final c in comps) {
+        final match = c.stages.where((s) => s.id == stageId).firstOrNull;
+        if (match != null) {
+          competitionName = c.name;
+          startLatitude = match.latitude;
+          startLongitude = match.longitude;
+          break;
+        }
+      }
+      final entry = StageRunHistory(
+        id: 'run-$stageId-${result.completedAt?.millisecondsSinceEpoch ?? 0}',
+        stageId: stageId,
+        stageName: rally.config.name,
+        competitionName: competitionName,
+        startedAt: rally.telemetry.startTime,
+        completedAt: result.completedAt,
+        startLatitude: startLatitude,
+        startLongitude: startLongitude,
+        endLatitude: rally.config.endLatitude,
+        endLongitude: rally.config.endLongitude,
+        targetAvgSpeed: rally.config.targetAvgSpeed,
+        maxSpeedLimit: rally.config.maxSpeedLimit,
+        maxSpeedKmh: result.maxSpeedKmh,
+        minSpeedKmh: result.minSpeedKmh,
+        avgSpeedKmh: result.avgSpeedKmh,
+        totalDistanceKm: result.totalDistanceKm,
+        elapsedSeconds: result.elapsedSeconds,
+      );
+      notifier.appendHistory(stageId, entry);
+    },
+  );
+});

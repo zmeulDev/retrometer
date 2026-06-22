@@ -106,6 +106,12 @@ class RetrometerTextStyles {
     color: RetrometerColors.textSecondary,
     fontSize: 22,
   );
+  static const TextStyle deltaStageName = TextStyle(
+    color: RetrometerColors.primary, // teal — stage identity
+    fontSize: 22,
+    fontWeight: FontWeight.bold,
+    fontFeatures: _tabular,
+  );
 
   // Trip-meter.
   static const TextStyle distanceNumber = TextStyle(

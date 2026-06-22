@@ -245,4 +245,100 @@ void main() {
       StageStatus.inProgress,
     );
   });
+
+  // --- per-stage speed telemetry --------------------------------------------
+
+  test('maxSpeedKmh/minSpeedKmh aggregate from fixes (min includes 0)',
+      () async {
+    await readController().startStage();
+
+    gps.controller.add(_pos(speed: 10)); // 10 m/s → 36 km/h
+    await Future<void>.delayed(Duration.zero);
+    gps.controller.add(_pos(speed: 20)); // 20 m/s → 72 km/h
+    await Future<void>.delayed(Duration.zero);
+
+    final t1 = container.read(stageControllerProvider).telemetry;
+    expect(t1.maxSpeedKmh, closeTo(72, 1e-9));
+    expect(t1.minSpeedKmh, closeTo(36, 1e-9));
+
+    // A 0-speed fix must count toward the min — stops are legit readings, not
+    // filtered out.
+    gps.controller.add(_pos(speed: 0)); // 0 km/h
+    await Future<void>.delayed(Duration.zero);
+
+    final t2 = container.read(stageControllerProvider).telemetry;
+    expect(t2.minSpeedKmh, closeTo(0, 1e-9));
+    expect(t2.maxSpeedKmh, closeTo(72, 1e-9));
+  });
+
+  test('stopStage snapshots a StageResult with max/min/distance/completedAt',
+      () async {
+    await readController().startStage();
+
+    // First fix seeds `last` (0 distance); subsequent fixes each add 0.1 km
+    // (metresPerStep=100). Three fixes → 0.2 km total.
+    gps.controller.add(_pos(speed: 10)); // 36 km/h, +0 km
+    await Future<void>.delayed(Duration.zero);
+    gps.controller.add(_pos(speed: 20)); // 72 km/h, +0.1 km
+    await Future<void>.delayed(Duration.zero);
+    gps.controller.add(_pos(speed: 0)); // 0 km/h, +0.1 km
+    await Future<void>.delayed(Duration.zero);
+
+    readController().stopStage();
+
+    final result = container.read(stageControllerProvider).telemetry.result;
+    expect(result, isNotNull);
+    expect(result!.maxSpeedKmh, closeTo(72, 1e-9));
+    expect(result.minSpeedKmh, closeTo(0, 1e-9));
+    expect(result.totalDistanceKm, closeTo(0.2, 1e-9));
+    expect(result.completedAt, isNotNull);
+  });
+
+  test('startStage resets max/min/result between stages', () async {
+    await readController().startStage();
+    gps.controller.add(_pos(speed: 20)); // 72 km/h
+    await Future<void>.delayed(Duration.zero);
+    readController().stopStage();
+    expect(
+      container.read(stageControllerProvider).telemetry.result,
+      isNotNull,
+    );
+
+    // Restart: aggregates must be cleared before any new fix arrives.
+    await readController().startStage();
+    final t = container.read(stageControllerProvider).telemetry;
+    expect(t.maxSpeedKmh, closeTo(0, 1e-9));
+    expect(t.minSpeedKmh, isNull);
+    expect(t.result, isNull);
+  });
+
+  test('actualAvgSpeedProvider is null at idle and follows distance/elapsed',
+      () async {
+    // Before starting: startTime null → elapsed 0 → null.
+    expect(container.read(actualAvgSpeedProvider), isNull);
+
+    await readController().startStage();
+    // Feed two fixes so distance accumulates (the first fix seeds `last`).
+    gps.controller.add(_pos(speed: 10));
+    await Future<void>.delayed(Duration.zero);
+    gps.controller.add(_pos(speed: 20));
+    await Future<void>.delayed(Duration.zero);
+
+    // Give the 1 Hz clock a chance to tick.
+    await Future<void>.delayed(const Duration(seconds: 1));
+    await Future<void>.delayed(Duration.zero);
+
+    // Deterministic: assert the relationship regardless of whether the tick
+    // has advanced elapsed past 0 yet (avoids CI flakiness on wall-clock
+    // boundaries).
+    final elapsed = container.read(elapsedSecondsProvider);
+    final distance =
+        container.read(stageControllerProvider).telemetry.currentDistance;
+    final avg = container.read(actualAvgSpeedProvider);
+    if (elapsed > 0) {
+      expect(avg, closeTo(distance / (elapsed / 3600.0), 1e-6));
+    } else {
+      expect(avg, isNull);
+    }
+  });
 }
