@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../theme/retrometer_theme.dart';
+import '../utils/formatting.dart';
 
 /// Dark picker theme (date/time pickers) tinted with the brand accent. The
 /// pickers don't inherit the app theme, so we wrap them explicitly. Reused by
@@ -19,14 +20,12 @@ Widget pickerTheme(BuildContext context, Widget? child) => Theme(
 // ---------------------------------------------------------------------------
 
 String _formatDate(DateTime dt) {
-  String two(int n) => n.toString().padLeft(2, '0');
   return '${dt.year}-${two(dt.month)}-${two(dt.day)}';
 }
 
 /// `yyyy-MM-dd HH:mm`, or `—` when [dt] is null.
 String formatDateTime(DateTime? dt) {
   if (dt == null) return '—';
-  String two(int n) => n.toString().padLeft(2, '0');
   return '${dt.year}-${two(dt.month)}-${two(dt.day)} '
       '${two(dt.hour)}:${two(dt.minute)}';
 }

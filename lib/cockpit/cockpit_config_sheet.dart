@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../state_providers.dart';
 import '../theme/retrometer_theme.dart';
+import '../widgets/editor_sheet.dart';
 import '../widgets/form_fields.dart';
 
 /// Opens the stage configuration bottom sheet (name, target average speed,
@@ -21,59 +22,41 @@ Future<void> showStageConfigSheet(BuildContext context, WidgetRef ref) async {
     context: context,
     isScrollControlled: true,
     builder: (context) => StatefulBuilder(
-      builder: (context, setState) => Padding(
-        padding: EdgeInsets.fromLTRB(
-          20,
-          8,
-          20,
-          20 + MediaQuery.of(context).viewInsets.bottom,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text(
-              'Configurare stage',
-              style: RetrometerTextStyles.sheetTitle,
+      builder: (context, setState) => EditorSheetScaffold(
+        title: 'Configurare stage',
+        onSave: () {
+          controller.updateConfig(
+            current.copyWith(
+              name: nameCtrl.text.trim().isEmpty
+                  ? current.name
+                  : nameCtrl.text.trim(),
+              targetAvgSpeed: target,
+              maxSpeedLimit: maxLimit,
             ),
-            const SizedBox(height: 20),
-            TextField(
-              controller: nameCtrl,
-              style: const TextStyle(color: RetrometerColors.textPrimary),
-              decoration: const InputDecoration(labelText: 'Nume'),
-            ),
-            const SizedBox(height: 16),
-            NumberField(
-              label: 'Viteză medie țintă (km/h)',
-              value: target,
-              decimals: 1,
-              onChanged: (v) => setState(() => target = v),
-            ),
-            const SizedBox(height: 16),
-            NumberField(
-              label: 'Limită maximă (km/h)',
-              value: maxLimit,
-              decimals: 1,
-              onChanged: (v) => setState(() => maxLimit = v),
-            ),
-            const SizedBox(height: 24),
-            FilledButton(
-              onPressed: () {
-                controller.updateConfig(
-                  current.copyWith(
-                    name: nameCtrl.text.trim().isEmpty
-                        ? current.name
-                        : nameCtrl.text.trim(),
-                    targetAvgSpeed: target,
-                    maxSpeedLimit: maxLimit,
-                  ),
-                );
-                Navigator.of(context).pop();
-              },
-              child: const Text('Salvează'),
-            ),
-          ],
-        ),
+          );
+          Navigator.of(context).pop();
+        },
+        children: [
+          TextField(
+            controller: nameCtrl,
+            style: const TextStyle(color: RetrometerColors.textPrimary),
+            decoration: const InputDecoration(labelText: 'Nume'),
+          ),
+          const SizedBox(height: 16),
+          NumberField(
+            label: 'Viteză medie țintă (km/h)',
+            value: target,
+            decimals: 1,
+            onChanged: (v) => setState(() => target = v),
+          ),
+          const SizedBox(height: 16),
+          NumberField(
+            label: 'Limită maximă (km/h)',
+            value: maxLimit,
+            decimals: 1,
+            onChanged: (v) => setState(() => maxLimit = v),
+          ),
+        ],
       ),
     ),
   );

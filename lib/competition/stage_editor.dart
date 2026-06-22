@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models.dart';
 import '../competition_providers.dart';
 import '../theme/retrometer_theme.dart';
+import '../utils/formatting.dart';
+import '../widgets/editor_sheet.dart';
 import '../widgets/form_fields.dart';
 import '../widgets/location_field.dart';
 
@@ -24,7 +26,7 @@ Future<void> showStageEditor(
   if (result == null) return;
   final notifier = ref.read(competitionsProvider.notifier);
   final stage = PlannedStage(
-    id: existing?.id ?? _newId(),
+    id: existing?.id ?? newId('stage'),
     name: result.name,
     startTime: result.startTime,
     targetAvgSpeed: result.targetAvgSpeed,
@@ -116,7 +118,7 @@ class _StageEditorState extends State<StageEditor> {
       // round-trip null (a location-only stage stays location-only).
       startTime: e?.startTime ??
           (e == null
-              ? _roundToMinute(DateTime.now().add(const Duration(minutes: 30)))
+              ? roundToMinute(DateTime.now().add(const Duration(minutes: 30)))
               : null),
       targetAvgSpeed: e?.targetAvgSpeed ?? 40.0,
       maxSpeedLimit: e?.maxSpeedLimit ?? 60.0,
@@ -134,14 +136,14 @@ class _StageEditorState extends State<StageEditor> {
       allocatedTimeSeconds: e?.allocatedTimeSeconds ?? 0,
     );
     _nameCtrl = TextEditingController(text: _draft.name);
-    _latCtrl = TextEditingController(text: _fmtCoordNullable(_draft.latitude));
-    _lngCtrl = TextEditingController(text: _fmtCoordNullable(_draft.longitude));
+    _latCtrl = TextEditingController(text: fmtCoordNullable(_draft.latitude));
+    _lngCtrl = TextEditingController(text: fmtCoordNullable(_draft.longitude));
     _radiusCtrl = TextEditingController(
         text: _draft.geofenceRadiusM.toStringAsFixed(0));
     _endLatCtrl = TextEditingController(
-        text: _draft.endLatitude == null ? '' : _fmtCoord(_draft.endLatitude!));
+        text: _draft.endLatitude == null ? '' : fmtCoord(_draft.endLatitude!));
     _endLngCtrl = TextEditingController(
-        text: _draft.endLongitude == null ? '' : _fmtCoord(_draft.endLongitude!));
+        text: _draft.endLongitude == null ? '' : fmtCoord(_draft.endLongitude!));
     _endRadiusCtrl = TextEditingController(
         text: _draft.endGeofenceRadiusM.toStringAsFixed(0));
     _distCtrl = TextEditingController(
@@ -170,118 +172,160 @@ class _StageEditorState extends State<StageEditor> {
     super.dispose();
   }
 
-  /// Apply resolved coordinates to the start location fields.
-  void _setStart(double lat, double lng) {
-    _draft.latitude = lat;
-    _draft.longitude = lng;
-    _latCtrl.text = _fmtCoord(lat);
-    _lngCtrl.text = _fmtCoord(lng);
+  /// Apply resolved coordinates to a pair of lat/lng fields, then rebuild.
+  void _applyCoords(
+    double lat,
+    double lng, {
+    required TextEditingController latCtrl,
+    required TextEditingController lngCtrl,
+    required void Function(double lat, double lng) setter,
+  }) {
+    setter(lat, lng);
+    latCtrl.text = fmtCoord(lat);
+    lngCtrl.text = fmtCoord(lng);
     setState(() {});
   }
 
+  /// Apply resolved coordinates to the start location fields.
+  void _setStart(double lat, double lng) => _applyCoords(
+        lat,
+        lng,
+        latCtrl: _latCtrl,
+        lngCtrl: _lngCtrl,
+        setter: (la, ln) {
+          _draft.latitude = la;
+          _draft.longitude = ln;
+        },
+      );
+
   /// Apply resolved coordinates to the finish location fields.
-  void _setEnd(double lat, double lng) {
-    _draft.endLatitude = lat;
-    _draft.endLongitude = lng;
-    _endLatCtrl.text = _fmtCoord(lat);
-    _endLngCtrl.text = _fmtCoord(lng);
-    setState(() {});
+  void _setEnd(double lat, double lng) => _applyCoords(
+        lat,
+        lng,
+        latCtrl: _endLatCtrl,
+        lngCtrl: _endLngCtrl,
+        setter: (la, ln) {
+          _draft.endLatitude = la;
+          _draft.endLongitude = ln;
+        },
+      );
+
+  /// Shared structure of a geofence location block (start or finish).
+  /// Spread the result into the outer scaffold's children list.
+  List<Widget> _geofenceSection({
+    required String title,
+    required String addressHint,
+    required TextEditingController latCtrl,
+    required TextEditingController lngCtrl,
+    required TextEditingController radiusCtrl,
+    required String latLabel,
+    required String lngLabel,
+    required String radiusLabel,
+    required double radiusValue,
+    required ValueChanged<double> onLatChanged,
+    required ValueChanged<double> onLngChanged,
+    required ValueChanged<double> onRadiusChanged,
+    required void Function(double lat, double lng) onResolved,
+  }) {
+    return [
+      SectionTitle(title),
+      AddressSearchField(hintText: addressHint, onResolved: onResolved),
+      const SizedBox(height: 8),
+      Row(
+        children: [
+          Expanded(
+            child: CoordField(
+              label: latLabel,
+              controller: latCtrl,
+              onChanged: onLatChanged,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: CoordField(
+              label: lngLabel,
+              controller: lngCtrl,
+              onChanged: onLngChanged,
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 8),
+      Row(
+        children: [
+          Expanded(
+            child: NumberField(
+              label: radiusLabel,
+              value: radiusValue,
+              onChanged: (v) {
+                onRadiusChanged(v);
+                radiusCtrl.text = v.toStringAsFixed(0);
+              },
+              controller: radiusCtrl,
+            ),
+          ),
+          const SizedBox(width: 8),
+          MyLocationButton(onResolved: onResolved),
+        ],
+      ),
+    ];
   }
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(20, 8, 20, 20 + bottomInset),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              widget.existing == null ? 'Stage nou' : 'Editare stage',
-              style: RetrometerTextStyles.sheetTitle,
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _nameCtrl,
-              style: const TextStyle(color: RetrometerColors.textPrimary),
-              decoration: const InputDecoration(labelText: 'Nume'),
-              onChanged: (v) => _draft.name = v,
-            ),
-            const SizedBox(height: 16),
-            DateTimeField(
-              value: _draft.startTime,
-              onChanged: (dt) => setState(() => _draft.startTime = dt),
-            ),
-            const SizedBox(height: 16),
-            NumberField(
-              label: 'Viteză medie țintă (km/h)',
-              value: _draft.targetAvgSpeed,
-              decimals: 1,
-              onChanged: (v) => _draft.targetAvgSpeed = v,
-            ),
-            const SizedBox(height: 16),
-            NumberField(
-              label: 'Limită maximă (km/h)',
-              value: _draft.maxSpeedLimit,
-              decimals: 1,
-              onChanged: (v) => _draft.maxSpeedLimit = v,
-            ),
-            const SizedBox(height: 20),
-            const Text('Locație start (geofence)',
-                style: RetrometerTextStyles.sectionLabel),
-            const SizedBox(height: 8),
-            AddressSearchField(
-              hintText: 'Adresă (ex. Str. Mare 12, Sibiu)',
-              onResolved: _setStart,
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: CoordField(
-                    label: 'Lat',
-                    controller: _latCtrl,
-                    onChanged: (v) => _draft.latitude = v,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: CoordField(
-                    label: 'Lng',
-                    controller: _lngCtrl,
-                    onChanged: (v) => _draft.longitude = v,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: NumberField(
-                    label: 'Rază geofence (m)',
-                    value: _draft.geofenceRadiusM,
-                    onChanged: (v) {
-                      _draft.geofenceRadiusM = v;
-                      _radiusCtrl.text = v.toStringAsFixed(0);
-                    },
-                    controller: _radiusCtrl,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                MyLocationButton(onResolved: _setStart),
-              ],
-            ),
-            const SizedBox(height: 8),
-            NumberField(
-              label: 'Distanță totală (km)',
-              value: _draft.totalDistanceKm,
-              decimals: 2,
-              controller: _distCtrl,
-              onChanged: (v) => _draft.totalDistanceKm = v,
-            ),
+    return EditorSheetScaffold(
+      title: widget.existing == null ? 'Stage nou' : 'Editare stage',
+      onSave: _save,
+      children: [
+        TextField(
+          controller: _nameCtrl,
+          style: const TextStyle(color: RetrometerColors.textPrimary),
+          decoration: const InputDecoration(labelText: 'Nume'),
+          onChanged: (v) => _draft.name = v,
+        ),
+        const SizedBox(height: 16),
+        DateTimeField(
+          value: _draft.startTime,
+          onChanged: (dt) => setState(() => _draft.startTime = dt),
+        ),
+        const SizedBox(height: 16),
+        NumberField(
+          label: 'Viteză medie țintă (km/h)',
+          value: _draft.targetAvgSpeed,
+          decimals: 1,
+          onChanged: (v) => _draft.targetAvgSpeed = v,
+        ),
+        const SizedBox(height: 16),
+        NumberField(
+          label: 'Limită maximă (km/h)',
+          value: _draft.maxSpeedLimit,
+          decimals: 1,
+          onChanged: (v) => _draft.maxSpeedLimit = v,
+        ),
+        const SizedBox(height: 20),
+        ..._geofenceSection(
+          title: 'Locație start (geofence)',
+          addressHint: 'Adresă (ex. Str. Mare 12, Sibiu)',
+          latCtrl: _latCtrl,
+          lngCtrl: _lngCtrl,
+          radiusCtrl: _radiusCtrl,
+          latLabel: 'Lat',
+          lngLabel: 'Lng',
+          radiusLabel: 'Rază geofence (m)',
+          radiusValue: _draft.geofenceRadiusM,
+          onLatChanged: (v) => _draft.latitude = v,
+          onLngChanged: (v) => _draft.longitude = v,
+          onRadiusChanged: (v) => _draft.geofenceRadiusM = v,
+          onResolved: _setStart,
+        ),
+        const SizedBox(height: 8),
+        NumberField(
+          label: 'Distanță totală (km)',
+          value: _draft.totalDistanceKm,
+          decimals: 2,
+          controller: _distCtrl,
+          onChanged: (v) => _draft.totalDistanceKm = v,
+        ),
             const SizedBox(height: 16),
             Row(
               children: [
@@ -341,50 +385,20 @@ class _StageEditorState extends State<StageEditor> {
               ],
             ),
             const SizedBox(height: 20),
-            const Text('Locație finală (geofence auto-stop)',
-                style: RetrometerTextStyles.sectionLabel),
-            const SizedBox(height: 8),
-            AddressSearchField(
-              hintText: 'Adresă sosire (ex. Str. Mare 99, Sibiu)',
+            ..._geofenceSection(
+              title: 'Locație finală (geofence auto-stop)',
+              addressHint: 'Adresă sosire (ex. Str. Mare 99, Sibiu)',
+              latCtrl: _endLatCtrl,
+              lngCtrl: _endLngCtrl,
+              radiusCtrl: _endRadiusCtrl,
+              latLabel: 'Lat final',
+              lngLabel: 'Lng final',
+              radiusLabel: 'Rază sosire (m)',
+              radiusValue: _draft.endGeofenceRadiusM,
+              onLatChanged: (v) => _draft.endLatitude = v,
+              onLngChanged: (v) => _draft.endLongitude = v,
+              onRadiusChanged: (v) => _draft.endGeofenceRadiusM = v,
               onResolved: _setEnd,
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: CoordField(
-                    label: 'Lat final',
-                    controller: _endLatCtrl,
-                    onChanged: (v) => _draft.endLatitude = v,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: CoordField(
-                    label: 'Lng final',
-                    controller: _endLngCtrl,
-                    onChanged: (v) => _draft.endLongitude = v,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: NumberField(
-                    label: 'Rază sosire (m)',
-                    value: _draft.endGeofenceRadiusM,
-                    onChanged: (v) {
-                      _draft.endGeofenceRadiusM = v;
-                      _endRadiusCtrl.text = v.toStringAsFixed(0);
-                    },
-                    controller: _endRadiusCtrl,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                MyLocationButton(onResolved: _setEnd),
-              ],
             ),
             SwitchListTile(
               dense: true,
@@ -401,14 +415,7 @@ class _StageEditorState extends State<StageEditor> {
               value: _draft.autoStart,
               onChanged: (v) => setState(() => _draft.autoStart = v),
             ),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: _save,
-              child: const Text('Salvează'),
-            ),
-          ],
-        ),
-      ),
+      ],
     );
   }
 
@@ -459,16 +466,3 @@ class _StageEditorState extends State<StageEditor> {
     return true;
   }
 }
-
-// ---------------------------------------------------------------------------
-// Helpers.
-// ---------------------------------------------------------------------------
-
-String _newId() => 'stage-${DateTime.now().millisecondsSinceEpoch}';
-
-DateTime _roundToMinute(DateTime dt) =>
-    DateTime(dt.year, dt.month, dt.day, dt.hour, dt.minute);
-
-String _fmtCoord(double v) => v.toStringAsFixed(5);
-
-String _fmtCoordNullable(double? v) => v == null ? '' : _fmtCoord(v);

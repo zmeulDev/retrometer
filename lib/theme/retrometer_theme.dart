@@ -77,6 +77,24 @@ class RetrometerColors {
 }
 
 // ---------------------------------------------------------------------------
+// Radii.
+// ---------------------------------------------------------------------------
+
+/// Named corner-radii for the recurring surface shapes. Each token's value
+/// EQUALS the literal it replaces — adding a token here is a zero-behavior
+/// change. Only radii that actually repeat in the codebase get a token; one-off
+/// literals stay inline.
+class RetrometerRadii {
+  const RetrometerRadii._();
+
+  /// Standard card surface (e.g. top-bar cards, dialog shape).
+  static const double card = 16;
+
+  /// Standard tile surface (e.g. cockpit trip-meter / adjust zones).
+  static const double tile = 20;
+}
+
+// ---------------------------------------------------------------------------
 // Typography.
 // ---------------------------------------------------------------------------
 
@@ -150,6 +168,17 @@ class RetrometerTextStyles {
   static TextStyle competitionRow = const TextStyle(
     color: RetrometerColors.primary,
     fontSize: 13,
+  );
+
+  /// The big elapsed-time readout in the cockpit top bar. Hoisted here from
+  /// `cockpit_top_bar.dart` so it is `const` and lives with the rest of the
+  /// type system.
+  static const TextStyle topBarElapsed = TextStyle(
+    color: RetrometerColors.textPrimary,
+    fontSize: 30,
+    fontWeight: FontWeight.bold,
+    fontFeatures: _tabular,
+    height: 1,
   );
 
   // Control buttons (START/STOP/RESET).

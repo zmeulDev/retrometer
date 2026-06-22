@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../state_providers.dart';
 import '../theme/retrometer_theme.dart';
+import '../widgets/cards.dart';
+import '../widgets/shrink_to_fit.dart';
 
 /// Bottom cockpit zone (40%): the trip-meter distance readout flanked by the
 /// two blind-touch ±10 m / ±100 m (long-press) adjust zones.
@@ -67,15 +69,10 @@ class AdjustZone extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       onLongPress: onLongPress,
-      child: Container(
-        decoration: BoxDecoration(
-          color: RetrometerColors.surface,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: RetrometerColors.divider),
-        ),
+      child: SurfaceCard(
+        radius: RetrometerRadii.tile,
         alignment: Alignment.center,
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
+        child: ShrinkToFit(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -110,13 +107,11 @@ class DistanceReadout extends ConsumerWidget {
     final distance = ref.watch(
       stageControllerProvider.select((s) => s.telemetry.currentDistance),
     );
-    return Container(
-      decoration: BoxDecoration(
-        color: RetrometerColors.surfaceElevated,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: RetrometerColors.primary.withValues(alpha: 0.3),
-        ),
+    return SurfaceCard(
+      color: RetrometerColors.surfaceElevated,
+      radius: RetrometerRadii.tile,
+      border: BorderSide(
+        color: RetrometerColors.primary.withValues(alpha: 0.3),
       ),
       alignment: Alignment.center,
       padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
@@ -129,8 +124,7 @@ class DistanceReadout extends ConsumerWidget {
           // below, which stays a legible fixed size.
           Flexible(
             fit: FlexFit.loose,
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
+            child: ShrinkToFit(
               child: Text(
                 distance.toStringAsFixed(2),
                 style: RetrometerTextStyles.distanceNumber,

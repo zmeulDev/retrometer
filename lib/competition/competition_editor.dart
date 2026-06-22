@@ -3,7 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models.dart';
 import '../competition_providers.dart';
-import '../theme/retrometer_theme.dart';
+import '../utils/formatting.dart';
+import '../widgets/editor_sheet.dart';
 import '../widgets/form_fields.dart';
 
 /// Opens the competition editor sheet. On save, adds [existing] (when editing)
@@ -21,7 +22,7 @@ Future<void> showCompetitionEditor(
   if (result == null) return;
   final notifier = ref.read(competitionsProvider.notifier);
   final competition = Competition(
-    id: existing?.id ?? 'comp-${DateTime.now().millisecondsSinceEpoch}',
+    id: existing?.id ?? newId('comp'),
     name: result.name,
     location: result.location,
     startDate: result.startDate,
@@ -162,92 +163,74 @@ class _CompetitionEditorState extends State<CompetitionEditor> {
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(20, 8, 20, 20 + bottomInset),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+    return EditorSheetScaffold(
+      title: widget.existing == null
+          ? 'Competiție nouă'
+          : 'Editare competiție',
+      onSave: _save,
+      children: [
+        LabeledTextField(controller: _nameCtrl, label: 'Nume competiție'),
+        const SizedBox(height: 12),
+        LabeledTextField(controller: _locationCtrl, label: 'Locație (ex. Cluj)'),
+        const SizedBox(height: 12),
+        DateRangeField(
+          startDate: _draft.startDate,
+          endDate: _draft.endDate,
+          onChanged: (start, end) =>
+              setState(() {_draft.startDate = start; _draft.endDate = end;}),
+        ),
+        const SizedBox(height: 12),
+        LabeledTextField(controller: _pilotCtrl, label: 'Pilot'),
+        const SizedBox(height: 12),
+        LabeledTextField(controller: _copilotCtrl, label: 'Copilot'),
+        const SizedBox(height: 12),
+        LabeledTextField(
+            controller: _carCtrl, label: 'Mașină (ex. BMW Z3)'),
+        const SizedBox(height: 12),
+        LabeledTextField(controller: _categoryCtrl, label: 'Categorie'),
+        const SizedBox(height: 12),
+        IntField(
+          controller: _totalTeamsCtrl,
+          label: 'Număr total echipe',
+          onChanged: (v) => _draft.totalTeams = v,
+        ),
+        const SizedBox(height: 12),
+        LabeledTextField(
+            controller: _contactCtrl, label: 'Persoană de contact'),
+        const SizedBox(height: 12),
+        LabeledTextField(
+            controller: _contactPhoneCtrl,
+            label: 'Telefon contact',
+            keyboardType: TextInputType.phone,
+        ),
+        const SizedBox(height: 12),
+        DecimalField(
+          controller: _costCtrl,
+          label: 'Cost competiție',
+          onChanged: (v) => _draft.cost = v,
+        ),
+        const SizedBox(height: 16),
+        const SectionTitle('Locul curent'),
+        Row(
           children: [
-            Text(
-              widget.existing == null
-                  ? 'Competiție nouă'
-                  : 'Editare competiție',
-              style: RetrometerTextStyles.sheetTitle,
+            Expanded(
+              child: IntField(
+                controller: _overallCtrl,
+                label: 'La general',
+                onChanged: (v) => _draft.overallStanding = v,
+              ),
             ),
-            const SizedBox(height: 16),
-            LabeledTextField(controller: _nameCtrl, label: 'Nume competiție'),
-            const SizedBox(height: 12),
-            LabeledTextField(controller: _locationCtrl, label: 'Locație (ex. Cluj)'),
-            const SizedBox(height: 12),
-            DateRangeField(
-              startDate: _draft.startDate,
-              endDate: _draft.endDate,
-              onChanged: (start, end) =>
-                  setState(() {_draft.startDate = start; _draft.endDate = end;}),
-            ),
-            const SizedBox(height: 12),
-            LabeledTextField(controller: _pilotCtrl, label: 'Pilot'),
-            const SizedBox(height: 12),
-            LabeledTextField(controller: _copilotCtrl, label: 'Copilot'),
-            const SizedBox(height: 12),
-            LabeledTextField(
-                controller: _carCtrl, label: 'Mașină (ex. BMW Z3)'),
-            const SizedBox(height: 12),
-            LabeledTextField(controller: _categoryCtrl, label: 'Categorie'),
-            const SizedBox(height: 12),
-            IntField(
-              controller: _totalTeamsCtrl,
-              label: 'Număr total echipe',
-              onChanged: (v) => _draft.totalTeams = v,
-            ),
-            const SizedBox(height: 12),
-            LabeledTextField(
-                controller: _contactCtrl, label: 'Persoană de contact'),
-            const SizedBox(height: 12),
-            LabeledTextField(
-                controller: _contactPhoneCtrl,
-                label: 'Telefon contact',
-                keyboardType: TextInputType.phone,
-            ),
-            const SizedBox(height: 12),
-            DecimalField(
-              controller: _costCtrl,
-              label: 'Cost competiție',
-              onChanged: (v) => _draft.cost = v,
-            ),
-            const SizedBox(height: 16),
-            const Text('Locul curent',
-                style: RetrometerTextStyles.sectionLabel),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: IntField(
-                    controller: _overallCtrl,
-                    label: 'La general',
-                    onChanged: (v) => _draft.overallStanding = v,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: IntField(
-                    controller: _categoryStandingCtrl,
-                    label: 'În categorie',
-                    onChanged: (v) => _draft.categoryStanding = v,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            FilledButton(
-              onPressed: _save,
-              child: const Text('Salvează'),
+            const SizedBox(width: 12),
+            Expanded(
+              child: IntField(
+                controller: _categoryStandingCtrl,
+                label: 'În categorie',
+                onChanged: (v) => _draft.categoryStanding = v,
+              ),
             ),
           ],
         ),
-      ),
+      ],
     );
   }
 

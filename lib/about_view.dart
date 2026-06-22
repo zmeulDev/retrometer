@@ -8,6 +8,8 @@ import 'guide_view.dart';
 import 'location_disclosure.dart';
 import 'services/gps_service.dart';
 import 'theme/retrometer_theme.dart';
+import 'widgets/icon_text_row.dart';
+import 'widgets/info_widgets.dart';
 
 /// Full-screen "Despre aplicație" — app name, version (from package_info_plus),
 /// and links to the user guide, the privacy policy, and the permissions page.
@@ -40,7 +42,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                 const SizedBox(height: 28),
                 _VersionBadge(version: version),
                 const SizedBox(height: 28),
-                _NavRow(
+                ListActionRow(
                   icon: Icons.menu_book,
                   label: 'Ghid de utilizare',
                   onTap: () => Navigator.of(context).push(
@@ -50,13 +52,13 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                _NavRow(
+                ListActionRow(
                   icon: Icons.privacy_tip,
                   label: 'Politică de confidențialitate',
                   onTap: () => launchUrl(Uri.parse(kPrivacyPolicyUrl)),
                 ),
                 const SizedBox(height: 12),
-                _NavRow(
+                ListActionRow(
                   icon: Icons.lock_outline,
                   label: 'Permisiuni',
                   onTap: () => Navigator.of(context).push(
@@ -177,41 +179,6 @@ class _PermStatus {
   final Color color;
 }
 
-/// A tappable nav row (icon + label + chevron) styled like the guide link.
-class _NavRow extends StatelessWidget {
-  const _NavRow({required this.icon, required this.label, required this.onTap});
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: RetrometerColors.surface,
-      borderRadius: BorderRadius.circular(10),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(10),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Row(
-            children: [
-              Icon(icon, color: RetrometerColors.primary, size: 22),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(label, style: RetrometerTextStyles.meta),
-              ),
-              Icon(Icons.chevron_right,
-                  color: RetrometerColors.textSecondary, size: 22),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _AppHeader extends StatelessWidget {
   const _AppHeader({required this.loading});
 
@@ -309,7 +276,7 @@ class _PermissionRow extends StatelessWidget {
                     Expanded(
                       child: Text(name, style: RetrometerTextStyles.metaStrong),
                     ),
-                    _StatusChip(status: status),
+                    StatusPill(text: status.label, color: status.color),
                   ],
                 ),
                 const SizedBox(height: 2),
@@ -337,28 +304,3 @@ class _PermissionRow extends StatelessWidget {
   }
 }
 
-class _StatusChip extends StatelessWidget {
-  const _StatusChip({required this.status});
-
-  final _PermStatus status;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: status.color.withValues(alpha: 0.16),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: status.color.withValues(alpha: 0.6), width: 1),
-      ),
-      child: Text(
-        status.label,
-        style: TextStyle(
-          color: status.color,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-}

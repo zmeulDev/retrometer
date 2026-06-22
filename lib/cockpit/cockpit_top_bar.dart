@@ -8,6 +8,10 @@ import '../location_disclosure.dart';
 import '../models.dart';
 import '../state_providers.dart';
 import '../theme/retrometer_theme.dart';
+import '../utils/formatting.dart';
+import '../widgets/cards.dart';
+import '../widgets/compact_icon_button.dart';
+import '../widgets/shrink_to_fit.dart';
 import 'cockpit_config_sheet.dart';
 
 /// Top cockpit zone: a header / body / footer card.
@@ -53,7 +57,7 @@ class CockpitTopBar extends ConsumerWidget {
             header: Row(
               children: [
                 Expanded(child: _CompetitionLabel(competition: competition)),
-                _NavIconButton(
+                CompactIconButton(
                   icon: Icons.event_note,
                   color: RetrometerColors.primary,
                   tooltip: 'Competiții',
@@ -64,7 +68,7 @@ class CockpitTopBar extends ConsumerWidget {
                     ),
                   ),
                 ),
-                _NavIconButton(
+                CompactIconButton(
                   icon: Icons.info_outline,
                   color: RetrometerColors.textSecondary,
                   tooltip: 'Despre aplicație',
@@ -104,14 +108,13 @@ class StageControls extends ConsumerWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        IconButton(
-          icon: Icon(Icons.settings,
-              color: RetrometerColors.textSecondary,
-              size: compact ? 18 : 22),
+        CompactIconButton(
+          icon: Icons.settings,
+          color: RetrometerColors.textSecondary,
           tooltip: 'Configurare stage',
-          constraints: BoxConstraints(
-              minHeight: compact ? 30 : 36, minWidth: compact ? 30 : 36),
-          padding: EdgeInsets.zero,
+          compact: compact,
+          expandedIconSize: 22,
+          expandedTouchSize: 36,
           onPressed:
               inProgress ? null : () => showStageConfigSheet(context, ref),
         ),
@@ -176,30 +179,28 @@ class ControlButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fg = foreground ?? RetrometerColors.onActionFill;
-    return Material(
+    return TappableCard(
       color: color,
-      borderRadius: BorderRadius.circular(compact ? 12 : 14),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(compact ? 12 : 14),
-        onTap: onTap,
-        child: Padding(
-          padding: EdgeInsets.symmetric(
-              horizontal: compact ? 10 : 16, vertical: compact ? 7 : 10),
-          child: compact
-              ? Icon(icon, color: fg, size: 20)
-              : Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(icon, color: fg, size: 20),
-                    const SizedBox(width: 6),
-                    Text(
-                      label,
-                      style: RetrometerTextStyles.controlLabel
-                          .copyWith(color: fg, fontSize: 15),
-                    ),
-                  ],
-                ),
-        ),
+      radius: compact ? 12 : 14,
+      border: BorderSide.none,
+      onTap: onTap,
+      child: Padding(
+        padding: EdgeInsets.symmetric(
+            horizontal: compact ? 10 : 16, vertical: compact ? 7 : 10),
+        child: compact
+            ? Icon(icon, color: fg, size: 20)
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, color: fg, size: 20),
+                  const SizedBox(width: 6),
+                  Text(
+                    label,
+                    style: RetrometerTextStyles.controlLabel
+                        .copyWith(color: fg, fontSize: 15),
+                  ),
+                ],
+              ),
       ),
     );
   }
@@ -218,23 +219,17 @@ Widget _topBarCard({
 }) {
   return Padding(
     padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
-    child: DecoratedBox(
-      decoration: BoxDecoration(
-        color: RetrometerColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: RetrometerColors.divider),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        child: Column(
-          children: [
-            header,
-            const SizedBox(height: 8),
-            Expanded(child: Center(child: body)),
-            const SizedBox(height: 8),
-            footer,
-          ],
-        ),
+    child: SurfaceCard(
+      radius: RetrometerRadii.card,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Column(
+        children: [
+          header,
+          const SizedBox(height: 8),
+          Expanded(child: Center(child: body)),
+          const SizedBox(height: 8),
+          footer,
+        ],
       ),
     ),
   );
@@ -298,8 +293,7 @@ class _CardBody extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, c) {
         final width = c.maxWidth.isFinite ? c.maxWidth : 400.0;
-        return FittedBox(
-          fit: BoxFit.scaleDown,
+        return ShrinkToFit(
           child: SizedBox(
             width: width,
             child: Column(
@@ -323,14 +317,8 @@ class _CardBody extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  _formatElapsed(elapsed),
-                  style: const TextStyle(
-                    color: RetrometerColors.textPrimary,
-                    fontSize: 30,
-                    fontWeight: FontWeight.bold,
-                    fontFeatures: [FontFeature.tabularFigures()],
-                    height: 1,
-                  ),
+                  formatElapsed(elapsed),
+                  style: RetrometerTextStyles.topBarElapsed,
                 ),
               ],
             ),
@@ -341,37 +329,3 @@ class _CardBody extends StatelessWidget {
   }
 }
 
-/// Header icon button that pushes a screen. Size shrinks in compact mode.
-class _NavIconButton extends StatelessWidget {
-  const _NavIconButton({
-    required this.icon,
-    required this.color,
-    required this.tooltip,
-    required this.compact,
-    required this.onPressed,
-  });
-
-  final IconData icon;
-  final Color color;
-  final String tooltip;
-  final bool compact;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return IconButton(
-      icon: Icon(icon, color: color, size: compact ? 18 : 20),
-      tooltip: tooltip,
-      constraints: BoxConstraints(
-          minHeight: compact ? 30 : 32, minWidth: compact ? 30 : 32),
-      padding: EdgeInsets.zero,
-      onPressed: onPressed,
-    );
-  }
-}
-
-String _formatElapsed(int totalSeconds) {
-  final m = (totalSeconds ~/ 60).toString().padLeft(2, '0');
-  final s = (totalSeconds % 60).toString().padLeft(2, '0');
-  return '$m:$s';
-}

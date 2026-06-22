@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'theme/retrometer_theme.dart';
+import 'widgets/editor_sheet.dart';
+import 'widgets/icon_text_row.dart';
 
 const _kOnboardedKey = 'retrometer.onboarded';
 
@@ -154,12 +156,9 @@ class _SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(
-        text,
-        style: RetrometerTextStyles.guideSection,
-      ),
+    return SectionTitle(
+      text,
+      style: RetrometerTextStyles.guideSection,
     );
   }
 }
@@ -173,26 +172,14 @@ class _GuideRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon,
-              color: color ?? RetrometerColors.textSecondary, size: 22),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              text,
-              style: TextStyle(
-                color: color ?? RetrometerColors.textSecondary,
-                fontSize: 15,
-                height: 1.35,
-              ),
-            ),
-          ),
-        ],
-      ),
+    final c = color ?? RetrometerColors.textSecondary;
+    return IconTextRow(
+      icon: icon,
+      text: text,
+      iconColor: c,
+      style: TextStyle(color: c, fontSize: 15, height: 1.35),
+      verticalPadding: 8,
+      crossAxisAlignment: CrossAxisAlignment.start,
     );
   }
 }

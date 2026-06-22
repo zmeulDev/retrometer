@@ -5,6 +5,7 @@ import '../competition_providers.dart';
 import '../location_disclosure.dart';
 import '../navigator_key.dart';
 import '../theme/retrometer_theme.dart';
+import '../widgets/retrometer_alert_dialog.dart';
 
 /// Surfaces the auto-start monitor's pending prompt as a confirmation dialog.
 ///
@@ -78,8 +79,8 @@ class _AutoStartPromptListenerState
       DialogRoute<bool>(
         context: nav.context,
         barrierDismissible: false,
-        builder: (dialogContext) => AlertDialog(
-        title: const Text('Pornire stage'),
+        builder: (dialogContext) => RetrometerAlertDialog(
+        title: 'Pornire stage',
         content: Text('Doriți să porniți "${next.stage.name}"?'),
         actions: [
           TextButton(

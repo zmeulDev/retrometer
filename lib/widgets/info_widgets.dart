@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/retrometer_theme.dart';
+import 'retrometer_alert_dialog.dart';
 
 /// An inline icon + text chip used in tile metadata rows (location, date,
 /// category, …). Renders as a minimal `Row` (no background).
@@ -164,8 +165,8 @@ Future<bool> confirmDialog(
 }) async {
   final result = await showDialog<bool>(
     context: context,
-    builder: (context) => AlertDialog(
-      title: Text(title),
+    builder: (context) => RetrometerAlertDialog(
+      title: title,
       content: Text(message),
       actions: [
         TextButton(

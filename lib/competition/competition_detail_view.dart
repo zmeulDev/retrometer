@@ -5,9 +5,11 @@ import '../competition_providers.dart';
 import '../models.dart';
 import '../state_providers.dart';
 import '../theme/retrometer_theme.dart';
+import '../utils/formatting.dart';
 import '../widgets/form_fields.dart';
 import '../widgets/info_widgets.dart';
-import '../widgets/cards.dart';
+import '../widgets/metadata_tile.dart';
+import '../widgets/speed_summary_line.dart';
 import 'competition_editor.dart';
 import 'stage_editor.dart';
 
@@ -256,7 +258,6 @@ class _MonitorStatusBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final s = ref.watch(autoStartMonitorProvider);
     final tick = s.lastTick;
-    String two(int n) => n.toString().padLeft(2, '0');
     final tickStr = tick == null
         ? '—'
         : '${two(tick.hour)}:${two(tick.minute)}:${two(tick.second)}';
@@ -336,136 +337,106 @@ class _StageTile extends ConsumerWidget {
       statusColor = RetrometerColors.waiting;
     }
 
-    return TappableCard(
+    return MetadataTile(
       onTap: () => showStageEditor(context, ref, competitionId, stage),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    stage.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: RetrometerTextStyles.tileTitle,
-                  ),
-                  const SizedBox(height: 6),
-                  InfoLine(
-                    icon: Icons.schedule,
-                    text: formatDateTime(stage.startTime),
-                    textStyle: RetrometerTextStyles.tileTime,
-                  ),
-                  const SizedBox(height: 4),
-                  InfoLine(
-                    icon: Icons.location_on,
-                    text: (stage.latitude != null && stage.longitude != null)
-                        ? '${stage.latitude!.toStringAsFixed(5)}, '
-                            '${stage.longitude!.toStringAsFixed(5)} '
-                            '(±${stage.geofenceRadiusM.toStringAsFixed(0)} m)'
-                        : 'fără locație',
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'țintă ${_fmtSpeed(stage.targetAvgSpeed)} / '
-                    'max ${_fmtSpeed(stage.maxSpeedLimit)} km/h'
-                    '${stage.autoStart ? ' · auto-start' : ' · manual'}',
-                    style: RetrometerTextStyles.metaMuted,
-                  ),
-                  if (stage.result != null) ...[
-                    const SizedBox(height: 4),
-                    InfoLine(
-                      icon: Icons.leaderboard,
-                      text: 'rezultat: max ${_fmtSpeed(stage.result!.maxSpeedKmh)} / '
-                          'min ${stage.result!.minSpeedKmh == null ? '—' : _fmtSpeed(stage.result!.minSpeedKmh!)} / '
-                          'med ${_fmtSpeed(stage.result!.avgSpeedKmh)} km/h',
-                      iconColor: RetrometerColors.primary,
-                    ),
-                  ],
-                  if (stage.endLatitude != null && stage.endLongitude != null) ...[
-                    const SizedBox(height: 4),
-                    InfoLine(
-                      icon: Icons.flag,
-                      text: 'spre ${stage.endLatitude!.toStringAsFixed(5)}, '
-                          '${stage.endLongitude!.toStringAsFixed(5)} '
-                          '(±${stage.endGeofenceRadiusM.toStringAsFixed(0)} m)'
-                          '${stage.autoStop ? ' · auto-stop' : ''}',
-                    ),
-                  ],
-                  if (stage.totalDistanceKm > 0 ||
-                      stage.allocatedTimeSeconds > 0) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      [
-                        if (stage.totalDistanceKm > 0)
-                          '${stage.totalDistanceKm.toStringAsFixed(2)} km',
-                        if (stage.allocatedTimeSeconds > 0)
-                          'timp ${_fmtMmSs(stage.allocatedTimeSeconds)}',
-                      ].join(' · '),
-                      style: RetrometerTextStyles.metaMuted,
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                StatusPill(text: statusLabel, color: statusColor),
-                const SizedBox(height: 8),
-                if (!isRunning)
-                  IconButton(
-                    icon: const Icon(Icons.play_arrow,
-                        color: RetrometerColors.startFill),
-                    tooltip: 'Pornește acum',
-                    constraints: const BoxConstraints(
-                        minHeight: 32, minWidth: 32),
-                    padding: EdgeInsets.zero,
-                    onPressed: () => ref
-                        .read(stageControllerProvider.notifier)
-                        .startStageFromPlan(stage)
-                        .then((_) => ref
-                            .read(competitionsProvider.notifier)
-                            .markStarted(competitionId, stage.id)),
-                  ),
-                IconButton(
-                  icon: const Icon(Icons.delete_outline,
-                      color: RetrometerColors.danger),
-                  tooltip: 'Șterge',
-                  constraints:
-                      const BoxConstraints(minHeight: 32, minWidth: 32),
-                  padding: EdgeInsets.zero,
-                  onPressed: () => ref
+      trailing: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          StatusPill(text: statusLabel, color: statusColor),
+          const SizedBox(height: 8),
+          if (!isRunning)
+            IconButton(
+              icon: const Icon(Icons.play_arrow,
+                  color: RetrometerColors.startFill),
+              tooltip: 'Pornește acum',
+              constraints: const BoxConstraints(
+                  minHeight: 32, minWidth: 32),
+              padding: EdgeInsets.zero,
+              onPressed: () => ref
+                  .read(stageControllerProvider.notifier)
+                  .startStageFromPlan(stage)
+                  .then((_) => ref
                       .read(competitionsProvider.notifier)
-                      .removeStage(competitionId, stage.id),
-                ),
-              ],
+                      .markStarted(competitionId, stage.id)),
+            ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline,
+                color: RetrometerColors.danger),
+            tooltip: 'Șterge',
+            constraints:
+                const BoxConstraints(minHeight: 32, minWidth: 32),
+            padding: EdgeInsets.zero,
+            onPressed: () => ref
+                .read(competitionsProvider.notifier)
+                .removeStage(competitionId, stage.id),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            stage.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: RetrometerTextStyles.tileTitle,
+          ),
+          const SizedBox(height: 6),
+          InfoLine(
+            icon: Icons.schedule,
+            text: formatDateTime(stage.startTime),
+            textStyle: RetrometerTextStyles.tileTime,
+          ),
+          const SizedBox(height: 4),
+          InfoLine(
+            icon: Icons.location_on,
+            text: fmtCoordPair(stage.latitude, stage.longitude,
+                radiusM: stage.geofenceRadiusM),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'țintă ${fmtSpeed(stage.targetAvgSpeed)} / '
+            'max ${fmtSpeed(stage.maxSpeedLimit)} km/h'
+            '${stage.autoStart ? ' · auto-start' : ' · manual'}',
+            style: RetrometerTextStyles.metaMuted,
+          ),
+          if (stage.result != null) ...[
+            const SizedBox(height: 4),
+            InfoLine(
+              icon: Icons.leaderboard,
+              text: 'rezultat: max ${fmtSpeed(stage.result!.maxSpeedKmh)} / '
+                  'min ${stage.result!.minSpeedKmh == null ? '—' : fmtSpeed(stage.result!.minSpeedKmh!)} / '
+                  'med ${fmtSpeed(stage.result!.avgSpeedKmh)} km/h',
+              iconColor: RetrometerColors.primary,
             ),
           ],
-        ),
+          if (stage.endLatitude != null && stage.endLongitude != null) ...[
+            const SizedBox(height: 4),
+            InfoLine(
+              icon: Icons.flag,
+              text:
+                  'spre ${fmtCoordPair(stage.endLatitude, stage.endLongitude, radiusM: stage.endGeofenceRadiusM)}'
+                  '${stage.autoStop ? ' · auto-stop' : ''}',
+            ),
+          ],
+          if (stage.totalDistanceKm > 0 ||
+              stage.allocatedTimeSeconds > 0) ...[
+            const SizedBox(height: 4),
+            Text(
+              [
+                if (stage.totalDistanceKm > 0)
+                  '${stage.totalDistanceKm.toStringAsFixed(2)} km',
+                if (stage.allocatedTimeSeconds > 0)
+                  'timp ${formatElapsed(stage.allocatedTimeSeconds)}',
+              ].join(' · '),
+              style: RetrometerTextStyles.metaMuted,
+            ),
+          ],
+        ],
       ),
     );
   }
-}
-
-// ---------------------------------------------------------------------------
-// Helpers.
-// ---------------------------------------------------------------------------
-
-/// Speed display: whole numbers without a decimal (40), fractional with one
-/// (35.9) — so a target average entered as 35.9 shows as 35.9, not 36.
-String _fmtSpeed(double v) =>
-    v % 1 == 0 ? v.toStringAsFixed(0) : v.toStringAsFixed(1);
-
-String _fmtMmSs(int totalSeconds) {
-  final m = totalSeconds ~/ 60;
-  final s = totalSeconds % 60;
-  String two(int n) => n.toString().padLeft(2, '0');
-  return '${two(m)}:${two(s)}';
 }
 
 // ---------------------------------------------------------------------------
@@ -495,70 +466,65 @@ class _HistoryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return TappableCard(
+    return MetadataTile(
       onTap: null,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            entry.stageName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: RetrometerTextStyles.tileTitle,
+          ),
+          if (entry.competitionName.isNotEmpty) ...[
+            const SizedBox(height: 2),
             Text(
-              entry.stageName,
+              entry.competitionName,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: RetrometerTextStyles.tileTitle,
-            ),
-            if (entry.competitionName.isNotEmpty) ...[
-              const SizedBox(height: 2),
-              Text(
-                entry.competitionName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: RetrometerTextStyles.metaMuted,
-              ),
-            ],
-            const SizedBox(height: 6),
-            InfoLine(
-              icon: Icons.schedule,
-              text:
-                  '${formatDateTime(entry.startedAt)} → ${formatDateTime(entry.completedAt)}',
-            ),
-            if (entry.startLatitude != null &&
-                entry.startLongitude != null) ...[
-              const SizedBox(height: 4),
-              InfoLine(
-                icon: Icons.location_on,
-                text:
-                    '${entry.startLatitude!.toStringAsFixed(5)}, ${entry.startLongitude!.toStringAsFixed(5)}',
-              ),
-            ],
-            if (entry.endLatitude != null && entry.endLongitude != null) ...[
-              const SizedBox(height: 4),
-              InfoLine(
-                icon: Icons.flag,
-                text:
-                    '${entry.endLatitude!.toStringAsFixed(5)}, ${entry.endLongitude!.toStringAsFixed(5)}',
-              ),
-            ],
-            const SizedBox(height: 4),
-            Text(
-              'max ${_fmtSpeed(entry.maxSpeedKmh)} / '
-              'min ${entry.minSpeedKmh == null ? '—' : _fmtSpeed(entry.minSpeedKmh!)} / '
-              'med ${_fmtSpeed(entry.avgSpeedKmh)} km/h',
-              style: RetrometerTextStyles.metaMuted,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              [
-                'țintă ${_fmtSpeed(entry.targetAvgSpeed)} / '
-                    'max ${_fmtSpeed(entry.maxSpeedLimit)} km/h',
-                '${entry.totalDistanceKm.toStringAsFixed(2)} km',
-                'timp ${_fmtMmSs(entry.elapsedSeconds)}',
-              ].join(' · '),
               style: RetrometerTextStyles.metaMuted,
             ),
           ],
-        ),
+          const SizedBox(height: 6),
+          InfoLine(
+            icon: Icons.schedule,
+            text:
+                '${formatDateTime(entry.startedAt)} → ${formatDateTime(entry.completedAt)}',
+          ),
+          if (entry.startLatitude != null &&
+              entry.startLongitude != null) ...[
+            const SizedBox(height: 4),
+            InfoLine(
+              icon: Icons.location_on,
+              text: fmtCoordPair(
+                  entry.startLatitude, entry.startLongitude),
+            ),
+          ],
+          if (entry.endLatitude != null && entry.endLongitude != null) ...[
+            const SizedBox(height: 4),
+            InfoLine(
+              icon: Icons.flag,
+              text: fmtCoordPair(entry.endLatitude, entry.endLongitude),
+            ),
+          ],
+          const SizedBox(height: 4),
+          SpeedSummaryLine(
+            maxSpeedKmh: entry.maxSpeedKmh,
+            minSpeedKmh: entry.minSpeedKmh,
+            avgSpeedKmh: entry.avgSpeedKmh,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            [
+              'țintă ${fmtSpeed(entry.targetAvgSpeed)} / '
+                  'max ${fmtSpeed(entry.maxSpeedLimit)} km/h',
+              '${entry.totalDistanceKm.toStringAsFixed(2)} km',
+              'timp ${formatElapsed(entry.elapsedSeconds)}',
+            ].join(' · '),
+            style: RetrometerTextStyles.metaMuted,
+          ),
+        ],
       ),
     );
   }

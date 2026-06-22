@@ -9,6 +9,7 @@ import 'models.dart';
 import 'services/device_service.dart';
 import 'services/gps_service.dart';
 import 'state_providers.dart';
+import 'utils/formatting.dart';
 
 const _kCompetitionsKey = 'retrometer.competitions';
 
@@ -594,7 +595,7 @@ class AutoStartMonitor extends Notifier<AutoStartStatus> {
     if (timeMet.isNotEmpty) {
       final chosen = timeMet.first;
       debugPrint('[autostart] time-met "${chosen.stage.name}" — prompting');
-      _setPending(chosen, now, 'la ora ${_hm(chosen.stage.startTime)}');
+      _setPending(chosen, now, 'la ora ${formatTime(chosen.stage.startTime)}');
       return;
     }
 
@@ -608,7 +609,7 @@ class AutoStartMonitor extends Notifier<AutoStartStatus> {
       debugPrint('[autostart] no trigger candidate — diagnostics only');
       final next = pending.isEmpty
           ? null
-          : '${pending.first.stage.name} la ${_hm(pending.first.stage.startTime)}';
+          : '${pending.first.stage.name} la ${formatTime(pending.first.stage.startTime)}';
       try {
         state = state.copyWith(
           message: pending.isEmpty ? 'așteptare' : 'așteptare',
@@ -726,12 +727,6 @@ int _byStartThenId(ScheduledStage a, ScheduledStage b) {
       .compareTo(b.stage.startTime ?? _maxDate);
   if (c != 0) return c;
   return a.stage.id.compareTo(b.stage.id);
-}
-
-String _hm(DateTime? dt) {
-  if (dt == null) return '—';
-  String two(int n) => n.toString().padLeft(2, '0');
-  return '${two(dt.hour)}:${two(dt.minute)}';
 }
 
 /// Provider for the auto-start monitor. Keep it alive by watching it from the

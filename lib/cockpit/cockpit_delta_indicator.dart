@@ -4,6 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models.dart';
 import '../state_providers.dart';
 import '../theme/retrometer_theme.dart';
+import '../utils/formatting.dart';
+import '../widgets/cards.dart';
+import '../widgets/shrink_to_fit.dart';
 
 /// Center cockpit zone (45%): the Δ indicator with a clear AVANS / ÎNTÂRZIERE
 /// / LA TIMP label and an over-speed alert overlay. Repaint-isolated.
@@ -63,8 +66,7 @@ class DeltaIndicator extends ConsumerWidget {
               alignment: Alignment.center,
               padding:
                   const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
+              child: ShrinkToFit(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -78,8 +80,8 @@ class DeltaIndicator extends ConsumerWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'țintă ${_fmtSpeed(target)} / '
-                      'reală ${avgReal == null ? '—' : _fmtSpeed(avgReal)} / '
+                      'țintă ${fmtSpeed(target)} / '
+                      'reală ${avgReal == null ? '—' : fmtSpeed(avgReal)} / '
                       'acum ${speed.toStringAsFixed(0)} km/h',
                       style: RetrometerTextStyles.deltaSubtitle,
                     ),
@@ -138,12 +140,10 @@ class _OverSpeedAlertState extends State<OverSpeedAlert>
   Widget build(BuildContext context) {
     return FadeTransition(
       opacity: _ctrl,
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.6),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.red, width: 1),
-        ),
+      child: SurfaceCard(
+        color: Colors.black.withValues(alpha: 0.6),
+        radius: 10,
+        border: const BorderSide(color: Colors.red, width: 1),
         padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 14),
         alignment: Alignment.center,
         child: const Text(
@@ -159,8 +159,3 @@ String _formatDelta(double delta) {
   final sign = delta < 0 ? '-' : '+';
   return '$sign ${delta.abs().toStringAsFixed(1)}';
 }
-
-/// Speed display: whole numbers without a decimal (40), fractional with one
-/// (35.9) — so a target average entered as 35.9 shows as 35.9, not 36.
-String _fmtSpeed(double v) =>
-    v % 1 == 0 ? v.toStringAsFixed(0) : v.toStringAsFixed(1);

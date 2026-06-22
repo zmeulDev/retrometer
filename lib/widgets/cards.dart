@@ -43,3 +43,47 @@ class TappableCard extends StatelessWidget {
     );
   }
 }
+
+/// A read-only rounded, bordered surface — the non-tappable counterpart of
+/// [TappableCard]. Same `Material` + `RoundedRectangleBorder` chrome, no
+/// ripple. Optional [alignment]/[padding] match `Container(decoration +
+/// alignment + padding)` semantics so it drops in where a plain decorated
+/// box was used for layout (cockpit zones, over-speed alert).
+class SurfaceCard extends StatelessWidget {
+  const SurfaceCard({
+    super.key,
+    required this.child,
+    this.color,
+    this.radius = 14,
+    this.border,
+    this.alignment,
+    this.padding,
+  });
+
+  final Widget child;
+  final Color? color;
+  final double radius;
+  final BorderSide? border;
+  final AlignmentGeometry? alignment;
+  final EdgeInsetsGeometry? padding;
+
+  @override
+  Widget build(BuildContext context) {
+    final side = border ?? const BorderSide(color: RetrometerColors.divider);
+    Widget content = child;
+    if (padding != null) {
+      content = Padding(padding: padding!, child: content);
+    }
+    if (alignment != null) {
+      content = Align(alignment: alignment!, child: content);
+    }
+    return Material(
+      color: color ?? RetrometerColors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(radius),
+        side: side,
+      ),
+      child: content,
+    );
+  }
+}

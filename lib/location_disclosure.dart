@@ -3,6 +3,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'theme/retrometer_theme.dart';
+import 'widgets/icon_text_row.dart';
+import 'widgets/retrometer_alert_dialog.dart';
 
 const _kDisclosureShownKey = 'retrometer.location_disclosure_shown';
 
@@ -44,9 +46,9 @@ class _LocationDisclosureDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
+    return RetrometerAlertDialog(
       icon: Icon(Icons.location_on, color: RetrometerColors.primary, size: 32),
-      title: const Text('Acces la locație'),
+      title: 'Acces la locație',
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -107,24 +109,18 @@ class _Bullet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: RetrometerColors.primary, size: 18),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(
-                color: RetrometerColors.textSecondary,
-                height: 1.35,
-              ),
-            ),
-          ),
-        ],
+    return IconTextRow(
+      icon: icon,
+      text: text,
+      iconColor: RetrometerColors.primary,
+      iconSize: 18,
+      gap: 10,
+      style: const TextStyle(
+        color: RetrometerColors.textSecondary,
+        height: 1.35,
       ),
+      verticalPadding: 4,
+      crossAxisAlignment: CrossAxisAlignment.start,
     );
   }
 }
