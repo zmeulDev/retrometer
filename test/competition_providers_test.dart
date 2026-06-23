@@ -1,13 +1,17 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:path/path.dart' as path;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'package:retrometer/competition_providers.dart';
 import 'package:retrometer/models.dart';
+import 'package:retrometer/services/competition_repository.dart';
 import 'package:retrometer/services/device_service.dart';
 import 'package:retrometer/services/gps_service.dart';
 import 'package:retrometer/state_providers.dart';
@@ -163,23 +167,43 @@ Competition _competition({List<PlannedStage> stages = const []}) => Competition(
 void main() {
   late _FakeGpsService gps;
   late _FakeDeviceService device;
+  late SqliteCompetitionRepository repo;
+  late Directory repoDir;
   late ProviderContainer container;
+
+  setUpAll(sqfliteFfiInit);
 
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     gps = _FakeGpsService();
     device = _FakeDeviceService();
+    // SQLite-backed repository at a unique temp path (host `flutter test` has no
+    // sqflite platform channels, so we drive an in-process ffi factory). The
+    // same repo instance is reused by the "fresh container" test below so the
+    // persisted data rehydrates from the same DB file.
+    repoDir = Directory.systemTemp.createTempSync('retrometer_prov_test_');
+    repo = SqliteCompetitionRepository(
+      databaseFactory: databaseFactoryFfi,
+      pathProvider: () async => path.join(repoDir.path, 'test.db'),
+    );
     container = ProviderContainer(
       overrides: [
         gpsServiceProvider.overrideWithValue(gps),
         deviceServiceProvider.overrideWithValue(device),
+        competitionRepositoryProvider.overrideWithValue(repo),
       ],
     );
   });
 
-  tearDown(() {
+  tearDown(() async {
     container.dispose();
     gps.controller.close();
+    // Drain any in-flight persistence writes the persister fired
+    // fire-and-forget (markResult/appendHistory) and close the handle before
+    // the temp dir is torn down — otherwise an unfinished transaction loses its
+    // rollback journal mid-write (readonly_rollback, code 1032).
+    await repo.close();
+    if (repoDir.existsSync()) repoDir.delete(recursive: true);
   });
 
   /// Hydrate competitions, seed one with [stage], then arm the auto-start
@@ -606,11 +630,13 @@ void main() {
           .copyWith(name: 'Renamed'),
     );
 
-    // Fresh container reads the same prefs → persisted competition survives.
+    // Fresh container reads the same DB (same repo instance) → persisted
+    // competition survives.
     final container2 = ProviderContainer(
       overrides: [
         gpsServiceProvider.overrideWithValue(gps),
         deviceServiceProvider.overrideWithValue(device),
+        competitionRepositoryProvider.overrideWithValue(repo),
       ],
     );
     addTearDown(container2.dispose);
@@ -643,6 +669,7 @@ void main() {
       overrides: [
         gpsServiceProvider.overrideWithValue(gps),
         deviceServiceProvider.overrideWithValue(device),
+        competitionRepositoryProvider.overrideWithValue(repo),
       ],
     );
     addTearDown(fresh.dispose);

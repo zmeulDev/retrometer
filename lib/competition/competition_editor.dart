@@ -7,17 +7,18 @@ import '../utils/formatting.dart';
 import '../widgets/editor_sheet.dart';
 import '../widgets/form_fields.dart';
 
-/// Opens the competition editor sheet. On save, adds [existing] (when editing)
-/// or a new competition. Existing stages are preserved across edits.
+/// Opens the competition editor as a full-screen page. On save, adds
+/// [existing] (when editing) or a new competition. Existing stages are
+/// preserved across edits.
 Future<void> showCompetitionEditor(
   BuildContext context,
   WidgetRef ref,
   Competition? existing,
 ) async {
-  final result = await showModalBottomSheet<CompetitionDraft>(
-    context: context,
-    isScrollControlled: true,
-    builder: (context) => CompetitionEditor(existing: existing),
+  final result = await Navigator.of(context).push<CompetitionDraft>(
+    MaterialPageRoute(
+      builder: (context) => CompetitionEditor(existing: existing),
+    ),
   );
   if (result == null) return;
   final notifier = ref.read(competitionsProvider.notifier);
@@ -103,6 +104,7 @@ class _CompetitionEditorState extends State<CompetitionEditor> {
   late final TextEditingController _overallCtrl;
   late final TextEditingController _categoryStandingCtrl;
   late CompetitionDraft _draft;
+  String? _nameError;
 
   @override
   void initState() {
@@ -163,70 +165,87 @@ class _CompetitionEditorState extends State<CompetitionEditor> {
 
   @override
   Widget build(BuildContext context) {
-    return EditorSheetScaffold(
-      title: widget.existing == null
-          ? 'Competiție nouă'
-          : 'Editare competiție',
+    return EditorPageScaffold(
+      title:
+          widget.existing == null ? 'Competiție nouă' : 'Editare competiție',
       onSave: _save,
       children: [
-        LabeledTextField(controller: _nameCtrl, label: 'Nume competiție'),
-        const SizedBox(height: 12),
-        LabeledTextField(controller: _locationCtrl, label: 'Locație (ex. Cluj)'),
-        const SizedBox(height: 12),
-        DateRangeField(
-          startDate: _draft.startDate,
-          endDate: _draft.endDate,
-          onChanged: (start, end) =>
-              setState(() {_draft.startDate = start; _draft.endDate = end;}),
-        ),
-        const SizedBox(height: 12),
-        LabeledTextField(controller: _pilotCtrl, label: 'Pilot'),
-        const SizedBox(height: 12),
-        LabeledTextField(controller: _copilotCtrl, label: 'Copilot'),
-        const SizedBox(height: 12),
-        LabeledTextField(
-            controller: _carCtrl, label: 'Mașină (ex. BMW Z3)'),
-        const SizedBox(height: 12),
-        LabeledTextField(controller: _categoryCtrl, label: 'Categorie'),
-        const SizedBox(height: 12),
-        IntField(
-          controller: _totalTeamsCtrl,
-          label: 'Număr total echipe',
-          onChanged: (v) => _draft.totalTeams = v,
-        ),
-        const SizedBox(height: 12),
-        LabeledTextField(
-            controller: _contactCtrl, label: 'Persoană de contact'),
-        const SizedBox(height: 12),
-        LabeledTextField(
-            controller: _contactPhoneCtrl,
-            label: 'Telefon contact',
-            keyboardType: TextInputType.phone,
-        ),
-        const SizedBox(height: 12),
-        DecimalField(
-          controller: _costCtrl,
-          label: 'Cost competiție',
-          onChanged: (v) => _draft.cost = v,
-        ),
-        const SizedBox(height: 16),
-        const SectionTitle('Locul curent'),
-        Row(
+        EditorSectionCard(
+          title: 'Identitate',
           children: [
-            Expanded(
-              child: IntField(
-                controller: _overallCtrl,
-                label: 'La general',
-                onChanged: (v) => _draft.overallStanding = v,
-              ),
+            LabeledTextField(
+              controller: _nameCtrl,
+              label: 'Nume competiție',
+              errorText: _nameError,
+              onChanged: (_) {
+                if (_nameError != null) setState(() => _nameError = null);
+              },
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: IntField(
-                controller: _categoryStandingCtrl,
-                label: 'În categorie',
-                onChanged: (v) => _draft.categoryStanding = v,
-              ),
+            LabeledTextField(
+                controller: _locationCtrl, label: 'Locație (ex. Cluj)'),
+            DateRangeField(
+              startDate: _draft.startDate,
+              endDate: _draft.endDate,
+              onChanged: (start, end) => setState(() {
+                _draft.startDate = start;
+                _draft.endDate = end;
+              }),
+            ),
+          ],
+        ),
+        EditorSectionCard(
+          title: 'Echipaj',
+          children: [
+            LabeledTextField(controller: _pilotCtrl, label: 'Pilot'),
+            LabeledTextField(controller: _copilotCtrl, label: 'Copilot'),
+            LabeledTextField(
+                controller: _carCtrl, label: 'Mașină (ex. BMW Z3)'),
+            LabeledTextField(controller: _categoryCtrl, label: 'Categorie'),
+            IntField(
+              controller: _totalTeamsCtrl,
+              label: 'Număr total echipe',
+              onChanged: (v) => _draft.totalTeams = v,
+            ),
+          ],
+        ),
+        EditorSectionCard(
+          title: 'Contact',
+          children: [
+            LabeledTextField(
+                controller: _contactCtrl, label: 'Persoană de contact'),
+            LabeledTextField(
+              controller: _contactPhoneCtrl,
+              label: 'Telefon contact',
+              keyboardType: TextInputType.phone,
+            ),
+            DecimalField(
+              controller: _costCtrl,
+              label: 'Cost competiție',
+              onChanged: (v) => _draft.cost = v,
+            ),
+          ],
+        ),
+        EditorSectionCard(
+          title: 'Locul curent',
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: IntField(
+                    controller: _overallCtrl,
+                    label: 'La general',
+                    onChanged: (v) => _draft.overallStanding = v,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: IntField(
+                    controller: _categoryStandingCtrl,
+                    label: 'În categorie',
+                    onChanged: (v) => _draft.categoryStanding = v,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -234,9 +253,14 @@ class _CompetitionEditorState extends State<CompetitionEditor> {
     );
   }
 
-  bool _save() {
+  void _save() {
+    final name = _nameCtrl.text.trim();
+    if (name.isEmpty) {
+      setState(() => _nameError = 'Introdu un nume.');
+      return;
+    }
     final draft = CompetitionDraft(
-      name: _nameCtrl.text.trim(),
+      name: name,
       location: _locationCtrl.text.trim(),
       startDate: _draft.startDate,
       endDate: _draft.endDate,
@@ -252,6 +276,5 @@ class _CompetitionEditorState extends State<CompetitionEditor> {
       categoryStanding: int.tryParse(_categoryStandingCtrl.text.trim()) ?? 0,
     );
     Navigator.of(context).pop(draft);
-    return true;
   }
 }

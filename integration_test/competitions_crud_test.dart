@@ -2,18 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:retrometer/widgets/cards.dart';
+import 'package:retrometer/widgets/editor_sheet.dart';
 
 import 'helpers/test_app.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  /// Finder for the first [TextField] inside the currently open modal bottom
-  /// sheet (the editor sheets). The sheets are scrollable, so [enterText] works
-  /// even when the field is off-screen.
-  Finder firstTextFieldInSheet() => find
+  /// Finder for the first [TextField] inside the currently open full-screen
+  /// editor page (the name field). The page is scrollable, so [enterText]
+  /// works even when the field is off-screen.
+  Finder firstTextFieldInEditor() => find
       .descendant(
-        of: find.byType(BottomSheet),
+        of: find.byType(EditorPageScaffold),
         matching: find.byType(TextField),
       )
       .first;
@@ -33,12 +34,7 @@ void main() {
     await tester.tap(find.byType(FloatingActionButton));
     await tester.pumpAndSettle();
     expect(find.text('Competiție nouă'), findsOneWidget);
-    await tester.enterText(firstTextFieldInSheet(), 'Cup Test');
-    await tester.scrollUntilVisible(
-      find.text('Salvează'),
-      200.0,
-      scrollable: find.byType(Scrollable).first,
-    );
+    await tester.enterText(firstTextFieldInEditor(), 'Cup Test');
     await tester.tap(find.text('Salvează'));
     await tester.pumpAndSettle();
 
@@ -53,12 +49,7 @@ void main() {
     await tester.tap(find.byType(FloatingActionButton));
     await tester.pumpAndSettle();
     expect(find.text('Stage nou'), findsOneWidget);
-    await tester.enterText(firstTextFieldInSheet(), 'SS1');
-    await tester.scrollUntilVisible(
-      find.text('Salvează'),
-      200.0,
-      scrollable: find.byType(Scrollable).first,
-    );
+    await tester.enterText(firstTextFieldInEditor(), 'SS1');
     await tester.tap(find.text('Salvează'));
     await tester.pumpAndSettle();
     expect(find.text('SS1'), findsOneWidget);
@@ -67,12 +58,7 @@ void main() {
     await tester.tap(find.text('SS1'));
     await tester.pumpAndSettle();
     expect(find.text('Editare stage'), findsOneWidget);
-    await tester.enterText(firstTextFieldInSheet(), 'SS1-editat');
-    await tester.scrollUntilVisible(
-      find.text('Salvează'),
-      200.0,
-      scrollable: find.byType(Scrollable).first,
-    );
+    await tester.enterText(firstTextFieldInEditor(), 'SS1-editat');
     await tester.tap(find.text('Salvează'));
     await tester.pumpAndSettle();
     expect(find.text('SS1-editat'), findsOneWidget);

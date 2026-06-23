@@ -21,7 +21,6 @@ class LedStrip extends ConsumerWidget {
     final overSpeed = ref.watch(isOverSpeedProvider);
     final autoStatus = ref.watch(autoStartMonitorProvider);
 
-    final gpsLit = status == StageStatus.inProgress;
     final stageLit = status != StageStatus.idle;
     final overLit = overSpeed;
     // Auto-start LED lights when a stage is armed and waiting for its trigger
@@ -35,11 +34,7 @@ class LedStrip extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
         child: Row(
           children: [
-            _Led(
-              label: 'GPS',
-              on: gpsLit,
-              onColor: context.colors.primary,
-            ),
+            _GpsLed(),
             const SizedBox(width: 12),
             _Led(
               label: 'STAGE',
@@ -61,6 +56,32 @@ class LedStrip extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// GPS status LED: green (fix), amber (searching), red (unavailable). Watches
+/// [gpsFixStatusProvider], which keeps the low-accuracy position stream alive
+/// while the cockpit is mounted — independent of whether a stage is running.
+class _GpsLed extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final fix = ref.watch(gpsFixStatusProvider);
+    final colors = context.colors;
+    final Color dotColor;
+    switch (fix) {
+      case GpsFixStatus.fixed:
+        dotColor = colors.running;
+      case GpsFixStatus.searching:
+        dotColor = colors.warn;
+      case GpsFixStatus.unavailable:
+        dotColor = colors.danger;
+    }
+    return _Led(
+      label: 'GPS',
+      // Always "lit" (colored) — the color carries the state, not on/off.
+      on: true,
+      onColor: dotColor,
     );
   }
 }

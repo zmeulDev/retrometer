@@ -1,37 +1,18 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'cockpit/auto_start_prompt_listener.dart';
+import 'cockpit/stage_finish_prompt_listener.dart';
 import 'cockpit_view.dart';
 import 'navigator_key.dart';
+import 'services/license_registry.dart';
 import 'theme/retrometer_theme.dart';
 import 'theme/theme_mode_provider.dart';
 
-/// Registers the bundled font OFL-1.1 license texts with Flutter's license
-/// registry so they appear in the system `LicensePage` reachable from
-/// About → "Licențe open-source".
-void _registerFontLicenses() {
-  LicenseRegistry.addLicense(() async* {
-    yield LicenseEntryWithLineBreaks(
-      const ['Roboto'],
-      await rootBundle.loadString('assets/fonts/licenses/Roboto-OFL.txt'),
-    );
-    yield LicenseEntryWithLineBreaks(
-      const ['RobotoMono'],
-      await rootBundle.loadString('assets/fonts/licenses/RobotoMono-OFL.txt'),
-    );
-    yield LicenseEntryWithLineBreaks(
-      const ['SairaStencil'],
-      await rootBundle.loadString('assets/fonts/licenses/SairaStencil-OFL.txt'),
-    );
-  });
-}
-
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  _registerFontLicenses();
+  AppLicenseRegistry.register();
   // Usable in any orientation (portrait or landscape) on phones and tablets.
   await SystemChrome.setPreferredOrientations(DeviceOrientation.values);
   // Hydrate the persisted theme mode before the first frame so the app never
@@ -69,13 +50,17 @@ class RetrometerApp extends ConsumerWidget {
       // in `builder` as a sibling of the navigator, outside its subtree) can
       // push its dialog without a Navigator ancestor in its own context.
       navigatorKey: rootNavigatorKey,
-      // Host the auto-start prompt listener above the root navigator so its
-      // dialog can fire from any pushed route (Competitions/About/Guide), not
-      // just the cockpit. The listener renders `SizedBox.shrink`, so it has
-      // zero layout impact — it only needs to stay mounted to keep its manual
-      // subscription alive.
+      // Host the auto-start + stage-finish prompt listeners above the root
+      // navigator so their dialogs can fire from any pushed route
+      // (Competitions/About/Guide), not just the cockpit. The listeners render
+      // `SizedBox.shrink`, so they have zero layout impact — they only need to
+      // stay mounted to keep their manual subscriptions alive.
       builder: (context, child) => Stack(
-        children: [child!, const AutoStartPromptListener()],
+        children: [
+          child!,
+          const AutoStartPromptListener(),
+          const StageFinishPromptListener(),
+        ],
       ),
       home: const CockpitView(),
     );

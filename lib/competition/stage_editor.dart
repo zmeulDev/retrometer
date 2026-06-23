@@ -10,18 +10,18 @@ import '../widgets/editor_sheet.dart';
 import '../widgets/form_fields.dart';
 import '../widgets/location_field.dart';
 
-/// Opens the stage editor sheet. On save, adds [existing] (when editing) or a
-/// new stage to competition [competitionId].
+/// Opens the stage editor as a full-screen page. On save, adds [existing]
+/// (when editing) or a new stage to competition [competitionId].
 Future<void> showStageEditor(
   BuildContext context,
   WidgetRef ref,
   String competitionId,
   PlannedStage? existing,
 ) async {
-  final result = await showModalBottomSheet<StageDraft>(
-    context: context,
-    isScrollControlled: true,
-    builder: (context) => StageEditor(existing: existing),
+  final result = await Navigator.of(context).push<StageDraft>(
+    MaterialPageRoute(
+      builder: (context) => StageEditor(existing: existing),
+    ),
   );
   if (result == null) return;
   final notifier = ref.read(competitionsProvider.notifier);
@@ -107,6 +107,7 @@ class _StageEditorState extends State<StageEditor> {
   late final TextEditingController _allocMinCtrl;
   late final TextEditingController _allocSecCtrl;
   late StageDraft _draft;
+  String? _nameError;
 
   @override
   void initState() {
@@ -210,9 +211,9 @@ class _StageEditorState extends State<StageEditor> {
         },
       );
 
-  /// Shared structure of a geofence location block (start or finish).
-  /// Spread the result into the outer scaffold's children list.
-  List<Widget> _geofenceSection({
+  /// Shared structure of a geofence location block (start or finish),
+  /// wrapped in an [EditorSectionCard].
+  Widget _geofenceSection({
     required String title,
     required String addressHint,
     required TextEditingController latCtrl,
@@ -227,83 +228,87 @@ class _StageEditorState extends State<StageEditor> {
     required ValueChanged<double> onRadiusChanged,
     required void Function(double lat, double lng) onResolved,
   }) {
-    return [
-      SectionTitle(title),
-      AddressSearchField(hintText: addressHint, onResolved: onResolved),
-      const SizedBox(height: 8),
-      Row(
-        children: [
-          Expanded(
-            child: CoordField(
-              label: latLabel,
-              controller: latCtrl,
-              onChanged: onLatChanged,
+    return EditorSectionCard(
+      title: title,
+      children: [
+        AddressSearchField(hintText: addressHint, onResolved: onResolved),
+        Row(
+          children: [
+            Expanded(
+              child: CoordField(
+                label: latLabel,
+                controller: latCtrl,
+                onChanged: onLatChanged,
+              ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: CoordField(
-              label: lngLabel,
-              controller: lngCtrl,
-              onChanged: onLngChanged,
+            const SizedBox(width: 12),
+            Expanded(
+              child: CoordField(
+                label: lngLabel,
+                controller: lngCtrl,
+                onChanged: onLngChanged,
+              ),
             ),
-          ),
-        ],
-      ),
-      const SizedBox(height: 8),
-      Row(
-        children: [
-          Expanded(
-            child: NumberField(
-              label: radiusLabel,
-              value: radiusValue,
-              onChanged: (v) {
-                onRadiusChanged(v);
-                radiusCtrl.text = v.toStringAsFixed(0);
-              },
-              controller: radiusCtrl,
+          ],
+        ),
+        Row(
+          children: [
+            Expanded(
+              child: NumberField(
+                label: radiusLabel,
+                value: radiusValue,
+                onChanged: (v) {
+                  onRadiusChanged(v);
+                  radiusCtrl.text = v.toStringAsFixed(0);
+                },
+                controller: radiusCtrl,
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          MyLocationButton(onResolved: onResolved),
-        ],
-      ),
-    ];
+            const SizedBox(width: 8),
+            MyLocationButton(onResolved: onResolved),
+          ],
+        ),
+      ],
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return EditorSheetScaffold(
+    return EditorPageScaffold(
       title: widget.existing == null ? 'Stage nou' : 'Editare stage',
       onSave: _save,
       children: [
-        TextField(
-          controller: _nameCtrl,
-          style: TextStyle(color: context.colors.textPrimary),
-          decoration: const InputDecoration(labelText: 'Nume'),
-          onChanged: (v) => _draft.name = v,
+        EditorSectionCard(
+          title: 'Identitate & timp',
+          children: [
+            LabeledTextField(
+              controller: _nameCtrl,
+              label: 'Nume',
+              errorText: _nameError,
+              onChanged: (v) {
+                _draft.name = v;
+                if (_nameError != null) setState(() => _nameError = null);
+              },
+            ),
+            DateTimeField(
+              value: _draft.startTime,
+              onChanged: (dt) => setState(() => _draft.startTime = dt),
+            ),
+            NumberField(
+              label: 'Viteză medie țintă (km/h)',
+              value: _draft.targetAvgSpeed,
+              decimals: 1,
+              onChanged: (v) => _draft.targetAvgSpeed = v,
+            ),
+            NumberField(
+              label: 'Limită maximă (km/h)',
+              value: _draft.maxSpeedLimit,
+              decimals: 1,
+              onChanged: (v) => _draft.maxSpeedLimit = v,
+            ),
+          ],
         ),
-        const SizedBox(height: 16),
-        DateTimeField(
-          value: _draft.startTime,
-          onChanged: (dt) => setState(() => _draft.startTime = dt),
-        ),
-        const SizedBox(height: 16),
-        NumberField(
-          label: 'Viteză medie țintă (km/h)',
-          value: _draft.targetAvgSpeed,
-          decimals: 1,
-          onChanged: (v) => _draft.targetAvgSpeed = v,
-        ),
-        const SizedBox(height: 16),
-        NumberField(
-          label: 'Limită maximă (km/h)',
-          value: _draft.maxSpeedLimit,
-          decimals: 1,
-          onChanged: (v) => _draft.maxSpeedLimit = v,
-        ),
-        const SizedBox(height: 20),
-        ..._geofenceSection(
+        _geofenceSection(
           title: 'Locație start (geofence)',
           addressHint: 'Adresă (ex. Str. Mare 12, Sibiu)',
           latCtrl: _latCtrl,
@@ -318,114 +323,73 @@ class _StageEditorState extends State<StageEditor> {
           onRadiusChanged: (v) => _draft.geofenceRadiusM = v,
           onResolved: _setStart,
         ),
-        const SizedBox(height: 8),
-        NumberField(
-          label: 'Distanță totală (km)',
-          value: _draft.totalDistanceKm,
-          decimals: 2,
-          controller: _distCtrl,
-          onChanged: (v) => _draft.totalDistanceKm = v,
+        EditorSectionCard(
+          title: 'Traseu',
+          children: [
+            NumberField(
+              label: 'Distanță totală (km)',
+              value: _draft.totalDistanceKm,
+              decimals: 2,
+              controller: _distCtrl,
+              onChanged: (v) => _draft.totalDistanceKm = v,
+            ),
+            _AllocatedTimeField(
+              minController: _allocMinCtrl,
+              secController: _allocSecCtrl,
+              onChanged: (seconds) =>
+                  _draft.allocatedTimeSeconds = seconds,
+            ),
+          ],
         ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: Text('Timp total alocat',
-                      style: context.text.fieldLabel),
-                ),
-                SizedBox(
-                  width: 60,
-                  child: TextField(
-                    controller: _allocMinCtrl,
-                    keyboardType: TextInputType.number,
-                    textAlign: TextAlign.center,
-                    style: context.text.fieldInput,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    decoration: InputDecoration(
-                      isDense: true,
-                      hintText: 'min',
-                      hintStyle: TextStyle(
-                          color: context.colors.hint, fontSize: 12),
-                    ),
-                    onChanged: (s) {
-                      final m = int.tryParse(s) ?? 0;
-                      _draft.allocatedTimeSeconds =
-                          m * 60 + (_draft.allocatedTimeSeconds % 60);
-                    },
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  child: Text(':',
-                      style: TextStyle(
-                          color: context.colors.textSecondary,
-                          fontSize: 20)),
-                ),
-                SizedBox(
-                  width: 60,
-                  child: TextField(
-                    controller: _allocSecCtrl,
-                    keyboardType: TextInputType.number,
-                    textAlign: TextAlign.center,
-                    style: context.text.fieldInput,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    decoration: InputDecoration(
-                      isDense: true,
-                      hintText: 'sec',
-                      hintStyle: TextStyle(
-                          color: context.colors.hint, fontSize: 12),
-                    ),
-                    onChanged: (s) {
-                      final sec = int.tryParse(s) ?? 0;
-                      _draft.allocatedTimeSeconds =
-                          (_draft.allocatedTimeSeconds ~/ 60) * 60 + sec;
-                    },
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            ..._geofenceSection(
-              title: 'Locație finală (geofence auto-stop)',
-              addressHint: 'Adresă sosire (ex. Str. Mare 99, Sibiu)',
-              latCtrl: _endLatCtrl,
-              lngCtrl: _endLngCtrl,
-              radiusCtrl: _endRadiusCtrl,
-              latLabel: 'Lat final',
-              lngLabel: 'Lng final',
-              radiusLabel: 'Rază sosire (m)',
-              radiusValue: _draft.endGeofenceRadiusM,
-              onLatChanged: (v) => _draft.endLatitude = v,
-              onLngChanged: (v) => _draft.endLongitude = v,
-              onRadiusChanged: (v) => _draft.endGeofenceRadiusM = v,
-              onResolved: _setEnd,
-            ),
+        _geofenceSection(
+          title: 'Locație finală (geofence auto-stop)',
+          addressHint: 'Adresă sosire (ex. Str. Mare 99, Sibiu)',
+          latCtrl: _endLatCtrl,
+          lngCtrl: _endLngCtrl,
+          radiusCtrl: _endRadiusCtrl,
+          latLabel: 'Lat final',
+          lngLabel: 'Lng final',
+          radiusLabel: 'Rază sosire (m)',
+          radiusValue: _draft.endGeofenceRadiusM,
+          onLatChanged: (v) => _draft.endLatitude = v,
+          onLngChanged: (v) => _draft.endLongitude = v,
+          onRadiusChanged: (v) => _draft.endGeofenceRadiusM = v,
+          onResolved: _setEnd,
+        ),
+        EditorSectionCard(
+          title: 'Declanșare auto',
+          children: [
             SwitchListTile(
-              dense: true,
+              contentPadding: EdgeInsets.zero,
               title: Text('Auto-stop la ajungere în geofence',
                   style: TextStyle(color: context.colors.textPrimary)),
               value: _draft.autoStop,
               onChanged: (v) => setState(() => _draft.autoStop = v),
             ),
-            const SizedBox(height: 8),
             SwitchListTile(
-              dense: true,
+              contentPadding: EdgeInsets.zero,
               title: Text('Auto-start (timp SAU locație)',
                   style: TextStyle(color: context.colors.textPrimary)),
               value: _draft.autoStart,
               onChanged: (v) => setState(() => _draft.autoStart = v),
             ),
+            Text(
+              'Auto-start are nevoie de timp sau locație de start; altfel nu '
+              'se poate porni automat. Lasă coordonatele goale pentru un stage '
+              'doar-pe-timp; lasă ora de start goală pentru un stage doar-pe-locație.',
+              style: context.text.metaMuted,
+            ),
+          ],
+        ),
       ],
     );
   }
 
-  bool _save() {
+  void _save() {
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Introdu un nume.')),
-      );
-      return false;
+      setState(() => _nameError = 'Introdu un nume.');
+      return;
     }
     // Empty coord fields mean "no location set" (nullable) — same as the finish
     // coords below. This lets the crew build a time-only stage by leaving the
@@ -451,18 +415,88 @@ class _StageEditorState extends State<StageEditor> {
       totalDistanceKm: _draft.totalDistanceKm,
       allocatedTimeSeconds: _draft.allocatedTimeSeconds,
     );
-    // Soft warning: auto-start can't fire without at least one trigger source.
-    if (draft.autoStart &&
-        draft.startTime == null &&
-        (draft.latitude == null || draft.longitude == null)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-              'Acest stage nu se poate auto-porni fără timp sau locație.'),
-        ),
-      );
-    }
     Navigator.of(context).pop(draft);
-    return true;
+  }
+}
+
+/// A compact `mm:ss` allocated-time entry. Two narrow digit-only fields with a
+/// shared label and a helper line noting that `0:00` means "no time limit".
+/// Reports the total seconds via [onChanged] whenever either field changes.
+class _AllocatedTimeField extends StatelessWidget {
+  const _AllocatedTimeField({
+    required this.minController,
+    required this.secController,
+    required this.onChanged,
+  });
+
+  final TextEditingController minController;
+  final TextEditingController secController;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text('Timp total alocat', style: context.text.fieldLabel),
+            ),
+            SizedBox(
+              width: 60,
+              child: TextField(
+                controller: minController,
+                keyboardType: TextInputType.number,
+                textAlign: TextAlign.center,
+                style: context.text.fieldInput,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: InputDecoration(
+                  isDense: true,
+                  hintText: 'min',
+                  hintStyle:
+                      TextStyle(color: context.colors.hint, fontSize: 12),
+                ),
+                onChanged: (s) {
+                  final m = int.tryParse(s) ?? 0;
+                  final sec = int.tryParse(secController.text) ?? 0;
+                  onChanged(m * 60 + sec);
+                },
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              child: Text(':',
+                  style: TextStyle(
+                      color: context.colors.textSecondary, fontSize: 20)),
+            ),
+            SizedBox(
+              width: 60,
+              child: TextField(
+                controller: secController,
+                keyboardType: TextInputType.number,
+                textAlign: TextAlign.center,
+                style: context.text.fieldInput,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: InputDecoration(
+                  isDense: true,
+                  hintText: 'sec',
+                  hintStyle:
+                      TextStyle(color: context.colors.hint, fontSize: 12),
+                ),
+                onChanged: (s) {
+                  final sec = int.tryParse(s) ?? 0;
+                  final m = int.tryParse(minController.text) ?? 0;
+                  onChanged(m * 60 + sec);
+                },
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text('0:00 = fără limită de timp',
+            style: context.text.metaMuted),
+      ],
+    );
   }
 }

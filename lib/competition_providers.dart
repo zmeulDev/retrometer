@@ -3,19 +3,13 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'models.dart';
+import 'services/competition_repository.dart';
 import 'services/device_service.dart';
 import 'services/gps_service.dart';
 import 'state_providers.dart';
 import 'utils/formatting.dart';
-
-const _kCompetitionsKey = 'retrometer.competitions';
-
-/// Legacy flat-schedule key (pre-competition versions). Used only for one-time
-/// migration into a default competition on first load.
-const _kLegacyScheduleKey = 'retrometer.schedule';
 
 /// How often the auto-start monitor polls the clock + location.
 const _autoStartPollInterval = Duration(seconds: 5);
@@ -47,40 +41,19 @@ class ScheduledStage {
 
 /// Persisted list of competitions, each owning its stages.
 ///
-/// Hydrated from `SharedPreferences` on first build; every mutation is written
-/// back so the plan survives restarts (plan in the morning, drive later). On
-/// the very first load, if a legacy flat schedule exists (pre-competition
-/// versions), it is migrated into a single "Importate" competition so no
-/// planned data is lost.
+/// Hydrated from the SQLite-backed [CompetitionRepository] on first build;
+/// every mutation is written back so the plan survives restarts (plan in the
+/// morning, drive later). On the very first load (empty DB) the legacy
+/// `SharedPreferences` payloads are migrated once (one-way) so no planned data
+/// is lost when upgrading.
 class CompetitionNotifier extends AsyncNotifier<List<Competition>> {
   @override
   Future<List<Competition>> build() async {
-    final prefs = await SharedPreferences.getInstance();
-    final encoded = prefs.getString(_kCompetitionsKey);
-    if (encoded != null) return competitionsFromJson(encoded);
-
-    // First launch on a pre-competition install: migrate the flat schedule.
-    final legacy = prefs.getString(_kLegacyScheduleKey);
-    if (legacy != null && legacy.trim().isNotEmpty) {
-      final stages = plannedStagesFromJson(legacy);
-      if (stages.isNotEmpty) {
-        final migrated = [
-          Competition(
-            id: 'comp-${DateTime.now().millisecondsSinceEpoch}',
-            name: 'Importate',
-            stages: stages,
-          ),
-        ];
-        await prefs.setString(_kCompetitionsKey, competitionsToJson(migrated));
-        return migrated;
-      }
-    }
-    return const [];
+    return ref.read(competitionRepositoryProvider).loadAll();
   }
 
   Future<void> _persist(List<Competition> competitions) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_kCompetitionsKey, competitionsToJson(competitions));
+    await ref.read(competitionRepositoryProvider).saveCompetitions(competitions);
   }
 
   /// All stages across all competitions, flattened (earliest-first is the UI's
@@ -215,16 +188,27 @@ class CompetitionNotifier extends AsyncNotifier<List<Competition>> {
   /// isn't in any competition (same convention as [markResult]).
   Future<void> appendHistory(String stageId, StageRunHistory entry) async {
     final current = state.valueOrNull ?? const <Competition>[];
+    // Find the owning competition so we can do a single history insert instead
+    // of a full competitions rewrite (history is append-only).
+    String? ownerCompId;
     final next = <Competition>[
       for (final c in current)
         c.copyWith(
           history: c.stages.any((s) => s.id == stageId)
-              ? [...c.history, entry]
+              ? () {
+                  ownerCompId = c.id;
+                  return [...c.history, entry];
+                }()
               : c.history,
         ),
     ];
     state = AsyncData(next);
-    await _persist(next);
+    if (ownerCompId != null) {
+      await ref.read(competitionRepositoryProvider).appendHistory(
+            ownerCompId!,
+            entry,
+          );
+    }
   }
 }
 
@@ -753,6 +737,13 @@ final stageResultPersisterProvider = Provider<void>((ref) {
       final stageId = rally.config.id;
       if (result == null || stageId.isEmpty) return;
       // Fire-and-forget; persistence is best-effort and must not block the UI.
+      // The two writes share one SQLite connection but are serialized at the
+      // repository ([SqliteCompetitionRepository] chains all writes), so
+      // `appendHistory`'s `rawUpdate` can't interleave with `markResult`'s
+      // `transaction` mid-flight (that interleaving corrupts the rollback
+      // journal — SQLITE_READONLY_ROLLBACK, code 1032). All `ref.read`s here run
+      // synchronously during the status flip, before any await, so the notifier
+      // references stay valid.
       final notifier = ref.read(competitionsProvider.notifier);
       notifier.markResult(stageId, result);
 

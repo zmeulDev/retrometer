@@ -39,9 +39,6 @@ class CockpitTopBar extends ConsumerWidget {
     final status = ref.watch(
       stageControllerProvider.select((s) => s.telemetry.status),
     );
-    final locAsync = ref.watch(localityProvider);
-    final locality =
-        locAsync.valueOrNull ?? (locAsync.isLoading ? '…' : '—');
     // Active competition (if the running stage belongs to one) gives context
     // in the header: event name + category.
     final competition = ref.watch(activeCompetitionProvider);
@@ -81,7 +78,7 @@ class CockpitTopBar extends ConsumerWidget {
                 ),
               ],
             ),
-            body: _CardBody(locality: locality, elapsed: elapsed),
+            body: _CardBody(elapsed: elapsed),
             footer: Center(
               child: StageControls(status: status, compact: compact),
             ),
@@ -104,6 +101,9 @@ class StageControls extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final inProgress = status == StageStatus.inProgress;
+    final paused = status == StageStatus.paused;
+    // Config is editable only when idle/completed (not mid-run or paused).
+    final configLocked = inProgress || paused;
     final gap = compact ? 6.0 : 8.0;
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -116,15 +116,23 @@ class StageControls extends ConsumerWidget {
           expandedIconSize: 22,
           expandedTouchSize: 36,
           onPressed:
-              inProgress ? null : () => showStageConfigSheet(context, ref),
+              configLocked ? null : () => showStageConfigSheet(context, ref),
         ),
         SizedBox(width: gap),
         if (inProgress)
           ControlButton(
-            icon: Icons.stop,
-            label: 'STOP',
-            color: context.colors.stopFill,
-            onTap: ref.read(stageControllerProvider.notifier).stopStage,
+            icon: Icons.pause,
+            label: 'PAUZĂ',
+            color: context.colors.warn,
+            onTap: ref.read(stageControllerProvider.notifier).pauseStage,
+            compact: compact,
+          )
+        else if (paused)
+          ControlButton(
+            icon: Icons.play_arrow,
+            label: 'CONTINUĂ',
+            color: context.colors.startFill,
+            onTap: ref.read(stageControllerProvider.notifier).resumeStage,
             compact: compact,
           )
         else
@@ -141,14 +149,25 @@ class StageControls extends ConsumerWidget {
             compact: compact,
           ),
         SizedBox(width: gap),
-        ControlButton(
-          icon: Icons.refresh,
-          label: 'RESET',
-          color: context.colors.resetFill,
-          foreground: context.colors.textPrimary,
-          onTap: ref.read(stageControllerProvider.notifier).resetStage,
-          compact: compact,
-        ),
+        // STOP finalizes from both in-progress and paused; hidden while idle
+        // (use RESET to clear) and completed (already finalized).
+        if (inProgress || paused)
+          ControlButton(
+            icon: Icons.stop,
+            label: 'STOP',
+            color: context.colors.stopFill,
+            onTap: ref.read(stageControllerProvider.notifier).stopStage,
+            compact: compact,
+          )
+        else
+          ControlButton(
+            icon: Icons.refresh,
+            label: 'RESET',
+            color: context.colors.resetFill,
+            foreground: context.colors.textPrimary,
+            onTap: ref.read(stageControllerProvider.notifier).resetStage,
+            compact: compact,
+          ),
       ],
     );
   }
@@ -268,62 +287,25 @@ class _CompetitionLabel extends StatelessWidget {
   }
 }
 
-/// Body: the current locality line and the stage elapsed time below it.
+/// Body: the stage elapsed time. The locality now lives in the Δ indicator's
+/// header (left zone) so this slot can give the elapsed readout the full space.
 class _CardBody extends StatelessWidget {
-  const _CardBody({required this.locality, required this.elapsed});
+  const _CardBody({required this.elapsed});
 
-  final String locality;
   final int elapsed;
 
   @override
   Widget build(BuildContext context) {
     // The body slot (Expanded in _topBarCard) can be short in landscape, where
     // the top bar zone is ~25% of the screen height and the body slot ends up
-    // only ~36px tall. The Column's natural height (locality row + 6px gap +
-    // 30px elapsed text ≈ 54px) would overflow that slot.
-    //
-    // FittedBox(scaleDown) lays out its child at natural size and then shrinks
-    // it to fit, so the block never overflows; in portrait where the slot is
-    // roomy it stays at natural size and the elapsed time remains prominent.
-    // FittedBox passes unbounded width to its child, so we wrap the Column in a
-    // SizedBox bounded to the slot width — that keeps the locality Row's
-    // Flexible able to ellipsize long names instead of forcing the whole block
-    // wider.
-    return LayoutBuilder(
-      builder: (context, c) {
-        final width = c.maxWidth.isFinite ? c.maxWidth : 400.0;
-        return ShrinkToFit(
-          child: SizedBox(
-            width: width,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.location_on,
-                        color: context.colors.primary, size: 18),
-                    const SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        locality,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: context.text.topBarText(),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  formatElapsed(elapsed),
-                  style: context.text.topBarElapsed,
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+    // only ~36px tall. FittedBox(scaleDown) lays out the elapsed text at natural
+    // size and then shrinks it to fit, so it never overflows; in portrait where
+    // the slot is roomy it stays at natural size and remains prominent.
+    return ShrinkToFit(
+      child: Text(
+        formatElapsed(elapsed),
+        style: context.text.topBarElapsed,
+      ),
     );
   }
 }

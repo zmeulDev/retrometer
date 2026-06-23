@@ -33,9 +33,12 @@ class StageController extends Notifier<RallyState> {
   StageTelemetry get telemetry => state.telemetry;
 
   /// Update the stage configuration (name / target average / max limit).
-  /// No-op while a stage is in progress.
+  /// No-op while a stage is in progress or paused.
   void updateConfig(StageConfig config) {
-    if (telemetry.status == StageStatus.inProgress) return;
+    if (telemetry.status == StageStatus.inProgress ||
+        telemetry.status == StageStatus.paused) {
+      return;
+    }
     state = state.copyWith(config: config);
   }
 
@@ -64,12 +67,52 @@ class StageController extends Notifier<RallyState> {
         status: StageStatus.inProgress,
         maxSpeedKmh: 0.0,
         minSpeedKmh: null,
+        pausedSince: null,
+        pauseOffsetSeconds: 0,
         result: null,
       ),
     );
 
     await ref.read(deviceServiceProvider).enableWakelock();
     await _subscribeGps(gps);
+  }
+
+  /// Pause an in-progress stage: freeze the elapsed timer (record `pausedSince`)
+  /// and stop accumulating distance by cancelling the GPS subscription. The
+  /// wakelock is released so the screen can sleep. Resume with [resumeStage].
+  void pauseStage() {
+    if (telemetry.status != StageStatus.inProgress) return;
+    _positionSub?.cancel();
+    _positionSub = null;
+    ref.read(deviceServiceProvider).disableWakelock();
+    state = state.copyWith(
+      telemetry: telemetry.copyWith(
+        status: StageStatus.paused,
+        pausedSince: DateTime.now(),
+      ),
+    );
+  }
+
+  /// Resume a paused stage: fold the paused interval into `pauseOffsetSeconds`
+  /// (so the timer continues without a jump), clear `pausedSince`, return to
+  /// in-progress, re-arm the wakelock, and re-subscribe to the GPS stream. The
+  /// fresh subscription starts with no previous fix, so the first post-resume
+  /// fix establishes a new baseline (no distance jump from a stale fix).
+  Future<void> resumeStage() async {
+    if (telemetry.status != StageStatus.paused) return;
+    final pausedSince = telemetry.pausedSince;
+    final extra = pausedSince == null
+        ? 0
+        : DateTime.now().difference(pausedSince).inSeconds;
+    state = state.copyWith(
+      telemetry: telemetry.copyWith(
+        status: StageStatus.inProgress,
+        pausedSince: null,
+        pauseOffsetSeconds: telemetry.pauseOffsetSeconds + extra,
+      ),
+    );
+    await ref.read(deviceServiceProvider).enableWakelock();
+    await _subscribeGps(ref.read(gpsServiceProvider));
   }
 
   /// Begin the stage using a planned stage's configuration (name / target /
@@ -144,9 +187,11 @@ class StageController extends Notifier<RallyState> {
         ),
       );
 
-      // Auto-stop: once we have at least two fixes (so the first fix at the
-      // start can't trip it), stop the stage when the device enters the
-      // finish geofence. Only when a finish is set and auto-stop is enabled.
+      // Finish prompt (location): once we have at least two fixes (so the
+      // first fix at the start can't trip it), raise the finish-confirmation
+      // prompt when the device enters the finish geofence — instead of
+      // silently auto-stopping. Only when a finish is set and auto-stop is
+      // enabled. The prompt is once-per-stage (the notifier guards it).
       final cfg = config;
       if (hadPreviousFix &&
           cfg.autoStop &&
@@ -160,7 +205,7 @@ class StageController extends Notifier<RallyState> {
         );
         if (dToEnd <= cfg.endGeofenceRadiusM) {
           await ref.read(deviceServiceProvider).haptic();
-          stopStage();
+          ref.read(stageFinishProvider.notifier).requestLocationFinish();
           return;
         }
       }
@@ -173,7 +218,11 @@ class StageController extends Notifier<RallyState> {
   /// and writes it onto the owning planned stage. Distance and start time are
   /// retained for review.
   void stopStage() {
-    if (telemetry.status != StageStatus.inProgress) return;
+    // Definitive stop, allowed from both in-progress and paused.
+    final status = telemetry.status;
+    if (status != StageStatus.inProgress && status != StageStatus.paused) {
+      return;
+    }
     _positionSub?.cancel();
     _positionSub = null;
     ref.read(deviceServiceProvider).disableWakelock();
@@ -188,11 +237,11 @@ class StageController extends Notifier<RallyState> {
 
   /// Snapshot a [StageResult] from the current telemetry: avg = totalDistance /
   /// elapsedHours (physically correct, no float drift); max/min from the live
-  /// aggregates; elapsed from startTime to now.
+  /// aggregates; elapsed from startTime to now, excluding paused intervals
+  /// (frozen at `pausedSince` if currently paused).
   StageResult _buildResult() {
     final t = telemetry;
-    final start = t.startTime;
-    final elapsed = start == null ? 0 : DateTime.now().difference(start).inSeconds;
+    final elapsed = stageElapsedSeconds(t, DateTime.now());
     final avg = elapsed > 0 ? t.currentDistance / (elapsed / 3600.0) : 0.0;
     return StageResult(
       maxSpeedKmh: t.maxSpeedKmh,
@@ -229,6 +278,110 @@ class StageController extends Notifier<RallyState> {
 final stageControllerProvider =
     NotifierProvider<StageController, RallyState>(StageController.new);
 
+/// Why a stage-finish prompt was raised.
+enum StageFinishReason { time, location }
+
+/// Surfaces a "ați ajuns la finalul stagiului — opriți?" confirmation instead
+/// of silently auto-stopping. Holds the pending finish reason (`time` when the
+/// elapsed reaches `allocatedTimeSeconds`, `location` when the device enters
+/// the finish geofence) and a once-per-stage guard so the prompt can't
+/// reappear at every GPS fix after a dismiss.
+///
+/// The location signal arrives imperatively from [StageController._subscribeGps]
+/// via [requestLocationFinish]; the time signal is derived here by *listening*
+/// (not watching) [elapsedSecondsProvider] so the 1 Hz tick checks the
+/// condition without rebuilding this notifier — an imperative `request` set
+/// would otherwise be clobbered by the rebuild. State is `null` when no prompt
+/// is pending.
+class StageFinishNotifier extends Notifier<StageFinishReason?> {
+  bool _promptedThisStage = false;
+
+  @override
+  StageFinishReason? build() {
+    final status = ref.watch(
+      stageControllerProvider.select((s) => s.telemetry.status),
+    );
+    // Re-arm the once-per-stage guard when the stage is no longer running —
+    // idle (reset) or completed (stopped) — so the next stage gets a fresh
+    // prompt. `paused` keeps the guard (a pause isn't a new stage).
+    if (status == StageStatus.idle || status == StageStatus.completed) {
+      _promptedThisStage = false;
+    }
+    // Listen (not watch): the elapsed tick drives the time check without
+    // rebuilding this notifier (which would reset state to null and clobber an
+    // imperative location prompt).
+    ref.listen<int>(elapsedSecondsProvider, (prev, next) {
+      _maybeTimeFinish(next);
+    });
+    return null;
+  }
+
+  void _maybeTimeFinish(int elapsed) {
+    if (_promptedThisStage) return;
+    final s = ref.read(stageControllerProvider);
+    if (s.telemetry.status != StageStatus.inProgress) return;
+    final allocated = s.config.allocatedTimeSeconds;
+    if (allocated > 0 && elapsed >= allocated) {
+      _setPending(StageFinishReason.time);
+    }
+  }
+
+  /// Location-finish signal from [StageController._subscribeGps]: the device
+  /// entered the finish geofence. Idempotent per stage (no-op if already
+  /// prompted).
+  void requestLocationFinish() {
+    if (_promptedThisStage) return;
+    _setPending(StageFinishReason.location);
+  }
+
+  void _setPending(StageFinishReason reason) {
+    _promptedThisStage = true;
+    try {
+      state = reason;
+    } on StateError {
+      // provider disposed mid-call — ignore.
+    }
+  }
+
+  /// Dismiss the prompt without stopping (snooze for the rest of this stage).
+  void dismiss() {
+    try {
+      state = null;
+    } on StateError {
+      // ignore
+    }
+  }
+
+  /// Confirm the prompt: stop the stage and clear the prompt. [stopStage] is
+  /// synchronous, so this returns immediately (the `Future<void>` keeps the
+  /// listener's `await` happy and leaves room for a future async stop).
+  Future<void> confirm() async {
+    ref.read(stageControllerProvider.notifier).stopStage();
+    try {
+      state = null;
+    } on StateError {
+      // ignore
+    }
+  }
+}
+
+final stageFinishProvider =
+    NotifierProvider<StageFinishNotifier, StageFinishReason?>(
+        StageFinishNotifier.new);
+
+/// Elapsed stage seconds excluding paused intervals. Raw elapsed is
+/// `now - startTime`; while paused the clock is frozen at `pausedSince`, and
+/// the cumulative `pauseOffsetSeconds` is subtracted so pauses don't count.
+/// Shared by the live [elapsedSecondsProvider] and the stage-result snapshot.
+int stageElapsedSeconds(StageTelemetry t, DateTime now) {
+  final start = t.startTime;
+  if (start == null) return 0;
+  final effectiveNow = t.pausedSince ?? now;
+  final raw = effectiveNow.difference(start).inSeconds;
+  final elapsed = raw - t.pauseOffsetSeconds;
+  return elapsed < 0 ? 0 : elapsed;
+}
+
 /// A 1 Hz wall-clock tick used to refresh elapsed-time / delta displays
 /// independently of GPS cadence. Emits `DateTime.now()` immediately and then
 /// once per second.
@@ -239,21 +392,63 @@ final clockTickProvider = StreamProvider<DateTime>((ref) async* {
   }
 });
 
-/// Elapsed wall-clock seconds since the stage started (0 while idle).
+/// Elapsed wall-clock seconds since the stage started (0 while idle). Excludes
+/// paused intervals: while paused the value is frozen at `pausedSince`, and on
+/// resume the cumulative `pauseOffsetSeconds` keeps it jump-free. Once stopped
+/// (`completed`) the value is frozen at the snapshot's [StageResult.elapsedSeconds]
+/// — the timer does not keep advancing after STOP.
 final elapsedSecondsProvider = Provider<int>((ref) {
   final start = ref.watch(
     stageControllerProvider.select((s) => s.telemetry.startTime),
   );
   if (start == null) return 0;
-  final now = ref.watch(clockTickProvider).valueOrNull ?? start;
-  return now.difference(start).inSeconds;
+  final status = ref.watch(
+    stageControllerProvider.select((s) => s.telemetry.status),
+  );
+  switch (status) {
+    case StageStatus.completed:
+      // Frozen at the stop instant — the live clock tick is intentionally not
+      // watched, so the display holds instead of drifting after STOP.
+      final result = ref.watch(
+        stageControllerProvider.select((s) => s.telemetry.result),
+      );
+      return result?.elapsedSeconds ?? 0;
+    case StageStatus.paused:
+      final pausedSince = ref.watch(
+        stageControllerProvider.select((s) => s.telemetry.pausedSince),
+      );
+      final pauseOffset = ref.watch(
+        stageControllerProvider.select((s) => s.telemetry.pauseOffsetSeconds),
+      );
+      final elapsed =
+          (pausedSince ?? start).difference(start).inSeconds - pauseOffset;
+      return elapsed < 0 ? 0 : elapsed;
+    case StageStatus.idle:
+      return 0;
+    case StageStatus.inProgress:
+      final pausedSince = ref.watch(
+        stageControllerProvider.select((s) => s.telemetry.pausedSince),
+      );
+      final pauseOffset = ref.watch(
+        stageControllerProvider.select((s) => s.telemetry.pauseOffsetSeconds),
+      );
+      final now = ref.watch(clockTickProvider).valueOrNull ?? start;
+      final effectiveNow = pausedSince ?? now;
+      final elapsed = effectiveNow.difference(start).inSeconds - pauseOffset;
+      return elapsed < 0 ? 0 : elapsed;
+  }
 });
 
 /// The Δ indicator in **seconds**: `t_real - t_ideal`.
 ///
 /// `t_ideal = distance_km / target_kmph` (hours) → × 3600 = seconds.
-/// `t_real` is elapsed wall-clock since start, with millisecond resolution so
-/// the display can show one decimal.
+/// `t_real` is elapsed wall-clock since start (millisecond resolution, so the
+/// display can show one decimal), **excluding paused intervals**
+/// (`pauseOffsetSeconds` is subtracted). While `paused` the value is frozen at
+/// `pausedSince`; once `completed` it is frozen at the snapshot's
+/// [StageResult.completedAt] — so Δ stops drifting and the flash stops
+/// pulsing after PAUZĂ / STOP. `t_real` is computed inline (rather than via
+/// [deltaSeconds]) so the pause offset can be applied.
 final deltaSecondsProvider = Provider<double>((ref) {
   final start = ref.watch(
     stageControllerProvider.select((s) => s.telemetry.startTime),
@@ -265,13 +460,35 @@ final deltaSecondsProvider = Provider<double>((ref) {
     stageControllerProvider.select((s) => s.config.targetAvgSpeed),
   );
   if (start == null || target <= 0) return 0.0;
-  final now = ref.watch(clockTickProvider).valueOrNull ?? start;
-  return deltaSeconds(
-    start: start,
-    now: now,
-    distanceKm: distance,
-    targetKmh: target,
+  final status = ref.watch(
+    stageControllerProvider.select((s) => s.telemetry.status),
   );
+  final pauseOffset = ref.watch(
+    stageControllerProvider.select((s) => s.telemetry.pauseOffsetSeconds),
+  );
+  // Resolve the effective "now" per status. Only `inProgress` consumes the
+  // live clock tick; paused/completed are pinned so the clock tick no longer
+  // drives a rebuild (Δ holds instead of drifting).
+  final DateTime effectiveNow;
+  switch (status) {
+    case StageStatus.paused:
+      final pausedSince = ref.watch(
+        stageControllerProvider.select((s) => s.telemetry.pausedSince),
+      );
+      effectiveNow = pausedSince ?? start;
+    case StageStatus.completed:
+      final result = ref.watch(
+        stageControllerProvider.select((s) => s.telemetry.result),
+      );
+      effectiveNow = result?.completedAt ?? start;
+    case StageStatus.idle:
+      return 0.0;
+    case StageStatus.inProgress:
+      effectiveNow = ref.watch(clockTickProvider).valueOrNull ?? start;
+  }
+  final tReal =
+      effectiveNow.difference(start).inMilliseconds / 1000.0 - pauseOffset;
+  return tReal - idealSeconds(distanceKm: distance, targetKmh: target);
 });
 
 /// Colour band derived from [deltaSecondsProvider] (±1 s tolerance).
@@ -279,8 +496,14 @@ final deltaBandProvider = Provider<DeltaBand>((ref) {
   return deltaBandFor(ref.watch(deltaSecondsProvider));
 });
 
-/// Whether the current speed exceeds the configured max limit.
+/// Whether the current speed exceeds the configured max limit. Only true while
+/// a stage is actually in progress — paused/completed stages never flag
+/// over-speed (the alert unmounts and stops pulsing on PAUZĂ / STOP).
 final isOverSpeedProvider = Provider<bool>((ref) {
+  final status = ref.watch(
+    stageControllerProvider.select((s) => s.telemetry.status),
+  );
+  if (status != StageStatus.inProgress) return false;
   final speed = ref.watch(
     stageControllerProvider.select((s) => s.telemetry.currentSpeed),
   );
@@ -342,6 +565,16 @@ final positionProvider = StreamProvider<Position>((ref) async* {
     accuracy: LocationAccuracy.low,
     distanceFilter: 100,
   );
+});
+
+/// GPS fix quality for the status-strip LED: green once a fix arrives, amber
+/// while searching, red when the service/permission is unavailable. Watching
+/// this keeps [positionProvider] alive while the cockpit is mounted.
+final gpsFixStatusProvider = Provider<GpsFixStatus>((ref) {
+  final async = ref.watch(positionProvider);
+  if (async.hasValue) return GpsFixStatus.fixed;
+  if (async.hasError) return GpsFixStatus.unavailable;
+  return GpsFixStatus.searching;
 });
 
 /// ~1 km grid cell key for the latest fix, used to throttle reverse geocoding.

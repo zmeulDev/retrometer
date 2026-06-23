@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="ro" data-band="ontime">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Retrometer — DeltaIndicator mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Saira+Stencil+One&family=Roboto+Mono:wght@500;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  /* ── Restomod rally tokens (the actual app palette) ── */
+  :root{
+    --bg:#161210; --surface:#1D1916; --surface-elev:#251F1A; --lcd-well:#0C0A07;
+    --primary:#FF9B21; --secondary:#E8B53F; --danger:#E8533F;
+    --ink:#EFE6D6; --ink-2:#C9BDA5; --ink-3:#A99D88; --ink-mute:#6B6052; --ink-faint:#4F4337;
+    --divider:#3A3128; --divider-strong:#4F4337;
+    --label-plate:#251F1A; --label-ink:#A99D88;
+    --lcd-soft:rgba(255,155,33,.16);
+    --r-band:28px; --r-chip:10px;
+    --stencil:'Saira Stencil One', system-ui, sans-serif;
+    --mono:'Roboto Mono', ui-monospace, monospace;
+    --body:'Roboto', system-ui, sans-serif;
+  }
+  /* Δ band states: bg flood + fg signal */
+  [data-band="ontime"] { --band-bg:#0E3D2E; --band-fg:#34D399; --band-label:'LA TIMP'; }
+  [data-band="advance"]{ --band-bg:#3A1410; --band-fg:#E8533F; --band-label:'AVANS'; }
+  [data-band="delay"]  { --band-bg:#3A2C0D; --band-fg:#E8B53F; --band-label:'ÎNTÂRZIERE'; }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; height:100%; }
+  body{
+    background:
+      radial-gradient(120% 80% at 50% -10%, #1f1a16 0%, transparent 60%),
+      var(--bg);
+    color:var(--ink);
+    font-family:var(--body);
+    min-height:100%;
+    display:flex; flex-direction:column; align-items:center;
+    padding:28px 16px 40px; gap:18px;
+  }
+  .meta{ text-align:center; color:var(--ink-3); font-size:13px; letter-spacing:.3px; }
+  .meta b{ color:var(--ink-2); font-family:var(--stencil); letter-spacing:.6px; }
+
+  /* ── The Δ zone (center cockpit, flex-40 portrait aspect) ── */
+  .frame{
+    width:390px; max-width:92vw;
+    height:360px;
+    position:relative;
+    filter:drop-shadow(0 18px 30px rgba(0,0,0,.45));
+  }
+  .band{
+    position:absolute; inset:0;
+    background:var(--band-bg);
+    border:1.5px solid color-mix(in srgb, var(--band-fg) 28%, transparent);
+    border-radius:var(--r-band);
+    overflow:hidden;
+    transition:background .2s linear, border-color .2s linear;
+    display:flex; flex-direction:column;
+    padding:14px 18px 16px;
+  }
+
+  /* Top overlay: tick-mark gauge strip */
+  .ticks{
+    position:absolute; top:9px; left:18px; right:18px; height:8px; pointer-events:none;
+    background:
+      repeating-linear-gradient(to right,
+        var(--divider-strong) 0 1px, transparent 1px calc(100%/40));
+    -webkit-mask:linear-gradient(to bottom, #000 0 50%, transparent 50% 100%);
+            mask:linear-gradient(to bottom, #000 0 50%, transparent 50% 100%);
+    opacity:.7;
+  }
+  /* Long/short tick alternation via a second, sparser set drawn taller */
+  .ticks::after{
+    content:""; position:absolute; inset:0;
+    background:repeating-linear-gradient(to right,
+      var(--divider-strong) 0 1px, transparent 1px calc(100%/20));
+    -webkit-mask:linear-gradient(to bottom, #000 0 100%, transparent 100%);
+            mask:linear-gradient(to bottom, #000 0 100%, transparent 100%);
+  }
+
+  /* Pulsing accent bar at very top center (the flash signal) */
+  .accent{
+    position:absolute; top:0; left:50%; transform:translateX(-50%);
+    width:64px; height:3px; border-radius:2px; background:var(--band-fg);
+    opacity:.35; transition:opacity .12s linear, height .12s linear;
+  }
+  body.flash-on [data-band="advance"] .accent,
+  body.flash-on [data-band="delay"]   .accent{ animation:accentPulse .7s linear infinite; }
+  @keyframes accentPulse{ 0%{ height:8px; opacity:1; } 1%{ height:3px; opacity:.35; } 100%{ height:3px; opacity:.35; } }
+
+  /* Locality chip top-left */
+  .loc{
+    position:absolute; top:22px; left:16px; max-width:55%;
+    display:flex; align-items:center; gap:5px; color:var(--ink-2);
+    font-family:var(--body); font-weight:700; font-size:13px;
+  }
+  .loc .pin{ width:13px; height:13px; color:var(--ink-3); }
+  body.has-fix .loc .pin{ color:var(--primary); }
+  .loc span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .loc span::before{ content:"Sibiu"; }
+  body.no-fix  .loc span::before{ content:"—"; }
+
+  /* Center content column */
+  .col{
+    position:relative; z-index:2;
+    flex:1; min-height:0;
+    display:flex; flex-direction:column; align-items:center;
+    margin-top:22px;
+  }
+  .band-label{
+    font-family:var(--stencil); font-weight:700; letter-spacing:4px;
+    font-size:34px; line-height:1; color:var(--band-fg);
+  }
+  .band-label::after{ content:var(--band-label); }
+
+  .delta-hero{ flex:1; min-height:0; display:flex; align-items:center; justify-content:center; width:100%; }
+  .delta{
+    font-family:var(--mono); font-weight:700; font-size:118px; line-height:1;
+    color:var(--band-fg); font-variant-numeric:tabular-nums;
+    letter-spacing:-2px; text-shadow:0 0 22px color-mix(in srgb,var(--band-fg) 30%, transparent);
+  }
+
+  /* Footer block: stage name + speed row beneath it */
+  .footer{ position:relative; z-index:2; display:flex; flex-direction:column; align-items:center; gap:10px; }
+  .stage{
+    font-family:var(--stencil); font-weight:700; font-size:22px; letter-spacing:1px;
+    color:var(--primary); font-variant-numeric:tabular-nums;
+    max-width:92%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    padding:2px 10px; border-top:1px solid color-mix(in srgb,var(--primary) 30%, transparent);
+  }
+
+  .speed-row{
+    display:flex; align-items:center; justify-content:center; gap:0;
+  }
+  .cell{
+    display:flex; flex-direction:column; align-items:center; gap:3px;
+    padding:0 16px; min-width:84px;
+  }
+  .cell .ic{ width:24px; height:24px; color:var(--ink-2); }
+  .cell .val{
+    font-family:var(--mono); font-weight:700; font-size:30px; line-height:1.02;
+    color:var(--ink-2); font-variant-numeric:tabular-nums;
+  }
+  .cell.over .val{ color:var(--danger); }
+  .cell .cap{
+    font-family:var(--stencil); font-weight:700; font-size:10px; letter-spacing:1.4px;
+    color:var(--ink-mute);
+  }
+  .vsep{ width:1px; height:46px; background:var(--divider-strong); }
+  .unit{
+    font-family:var(--body); font-size:15px; color:var(--ink-3);
+    align-self:flex-end; margin-left:10px; padding-bottom:4px;
+  }
+
+  /* Flash wash overlay (hard on/off), clipped to band — only advance/delay */
+  .wash{
+    position:absolute; inset:0; pointer-events:none;
+    background:var(--band-fg); opacity:.05; mix-blend-mode:screen;
+    transition:opacity .12s linear;
+  }
+  body.flash-on [data-band="advance"] .wash,
+  body.flash-on [data-band="delay"]   .wash{ animation:washPulse .7s linear infinite; }
+  @keyframes washPulse{ 0%{ opacity:.40; } 1%{ opacity:.05; } 100%{ opacity:.05; } }
+  body:not(.flash-on) [data-band="advance"] .wash,
+  body:not(.flash-on) [data-band="delay"]   .wash{ opacity:.08; }
+  [data-band="ontime"] .wash{ display:none; }
+
+  /* Over-speed banner */
+  .overspeed{
+    position:absolute; top:12px; left:12px; right:12px; z-index:5;
+    display:none; align-items:center; justify-content:center; gap:8px;
+    background:rgba(0,0,0,.55); border:1px solid var(--danger); border-radius:var(--r-chip);
+    padding:6px 14px; font-family:var(--stencil); font-weight:700; color:var(--danger);
+    letter-spacing:1.2px; font-size:18px;
+  }
+  body.overspeed-on .overspeed{ display:flex; animation:osPulse .5s steps(1,end) infinite alternate; }
+  @keyframes osPulse{ from{ opacity:.45; } to{ opacity:1; } }
+
+  /* ── Controls ── */
+  .controls{
+    width:390px; max-width:92vw;
+    display:flex; flex-direction:column; gap:10px;
+    background:var(--surface); border:1px solid var(--divider); border-radius:14px; padding:14px;
+  }
+  .row{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .row .lbl{ font-family:var(--stencil); font-size:11px; letter-spacing:1px; color:var(--ink-3); width:74px; }
+  button{
+    font-family:var(--stencil); font-size:12px; letter-spacing:.6px;
+    background:var(--surface-elev); color:var(--ink-2); border:1px solid var(--divider-strong);
+    border-radius:8px; padding:7px 12px; cursor:pointer; transition:.12s;
+  }
+  button:hover{ border-color:var(--primary); color:var(--ink); }
+  button.on{ background:var(--lcd-soft); border-color:var(--primary); color:var(--primary); }
+  .pill{ font-size:11px; }
+  .note{ font-size:11px; color:var(--ink-mute); line-height:1.5; max-width:390px; text-align:center; }
+  .note code{ font-family:var(--mono); color:var(--ink-2); }
+</style>
+</head>
+<body class="has-fix">
+
+  <div class="meta"><b>DeltaIndicator</b> · stage name la footer · rândul de viteze dedesubt</div>
+
+  <div class="frame" id="frame">
+    <div class="band" id="band">
+      <div class="ticks"></div>
+      <div class="accent"></div>
+      <div class="loc"><svg class="pin" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8 2 5 5 5 9c0 4 7 13 7 13s7-9 7-13c0-4-3-7-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg><span></span></div>
+
+      <div class="col">
+        <div class="band-label"></div>
+        <div class="delta-hero"><div class="delta" id="delta">+ 0.0</div></div>
+        <div class="footer">
+          <div class="stage" id="stage">SS · SIGHIȘOARA</div>
+          <div class="speed-row" id="speedRow">
+            <div class="cell">
+              <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 21V4h9l1 3h4v9H9z" stroke-linejoin="round"/></svg>
+              <div class="val" id="vTarget">40</div>
+              <div class="cap">ȚINTĂ</div>
+            </div>
+            <div class="vsep"></div>
+            <div class="cell">
+              <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8.2"/><path d="M12 12V6.5M12 12l4 2.4" stroke-linecap="round"/></svg>
+              <div class="val" id="vReal">39</div>
+              <div class="cap">REALĂ</div>
+            </div>
+            <div class="vsep"></div>
+            <div class="cell" id="cellNow">
+              <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3.2"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M6 6l2 2M16 16l2 2M18 6l-2 2M8 16l-2 2" stroke-linecap="round"/></svg>
+              <div class="val" id="vNow">52</div>
+              <div class="cap">ACUM</div>
+            </div>
+            <div class="unit">km/h</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="wash"></div>
+      <div class="overspeed">⚠ OVER SPEED</div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="row">
+      <span class="lbl">BANDĂ</span>
+      <button data-set-band="ontime" class="on">LA TIMP</button>
+      <button data-set-band="advance">AVANS</button>
+      <button data-set-band="delay">ÎNTÂRZIERE</button>
+    </div>
+    <div class="row">
+      <span class="lbl">VITEZE</span>
+      <button id="btnSpeeds" class="on">cu date</button>
+      <button id="btnNull">fără date (—)</button>
+    </div>
+    <div class="row">
+      <span class="lbl">STARE</span>
+      <button id="btnFlash" class="on">flash ON (inProgress)</button>
+      <button id="btnOver" >OVER-SPEED</button>
+      <button id="btnFix" class="on">fix GPS</button>
+    </div>
+  </div>
+
+  <div class="note">
+    Paletă reală app: <code>#161210</code> · amber <code>#FF9B21</code> · SairaStencil + RobotoMono.
+    Flash/wash pulsează doar pe AVANS / ÎNTÂRZIERE când stage-ul rulează (gate pe <code>status==inProgress</code>).
+  </div>
+
+<script>
+  const body = document.body;
+  const delta = document.getElementById('delta');
+  const stage = document.getElementById('stage');
+  const vTarget = document.getElementById('vTarget');
+  const vReal = document.getElementById('vReal');
+  const vNow = document.getElementById('vNow');
+  const cellNow = document.getElementById('cellNow');
+
+  // Δ value per band (sign-space-1-decimal, like _formatDelta)
+  const deltaByBand = { ontime:'+ 0.0', advance:'- 1.2', delay:'+ 2.4' };
+
+  function setBand(b){
+    document.documentElement.setAttribute('data-band', b);
+    delta.textContent = deltaByBand[b];
+    // AVANS = Δ<0 (ahead), ÎNTÂRZIERE = Δ>0 (late)
+    document.querySelectorAll('[data-set-band]').forEach(btn=>{
+      btn.classList.toggle('on', btn.dataset.setBand === b);
+    });
+  }
+  document.querySelectorAll('[data-set-band]').forEach(b=>b.addEventListener('click', ()=>setBand(b.dataset.setBand)));
+
+  // Speeds: data vs null (—)
+  let nullSpeeds = false;
+  const btnSpeeds = document.getElementById('btnSpeeds');
+  const btnNull = document.getElementById('btnNull');
+  function renderSpeeds(){
+    if(nullSpeeds){
+      vReal.textContent = '—'; vNow.textContent = '—';
+      cellNow.classList.remove('over');
+    } else {
+      vReal.textContent = '39'; vNow.textContent = '52';
+      cellNow.classList.toggle('over', Number(vNow.textContent) > 50); // demo: over max
+    }
+    btnSpeeds.classList.toggle('on', !nullSpeeds);
+    btnNull.classList.toggle('on', nullSpeeds);
+  }
+  btnSpeeds.addEventListener('click', ()=>{ nullSpeeds=false; renderSpeeds(); });
+  btnNull.addEventListener('click', ()=>{ nullSpeeds=true; renderSpeeds(); });
+
+  // Flash gate (only meaningful when a stage is inProgress)
+  const btnFlash = document.getElementById('btnFlash');
+  btnFlash.addEventListener('click', ()=>{
+    body.classList.toggle('flash-on');
+    btnFlash.classList.toggle('on', body.classList.contains('flash-on'));
+    btnFlash.textContent = body.classList.contains('flash-on') ? 'flash ON (inProgress)' : 'flash OFF (pauză/stop)';
+  });
+
+  // Over-speed banner
+  const btnOver = document.getElementById('btnOver');
+  btnOver.addEventListener('click', ()=>{
+    body.classList.toggle('overspeed-on');
+    btnOver.classList.toggle('on', body.classList.contains('overspeed-on'));
+  });
+
+  // GPS fix toggle (locality chip lights up)
+  const btnFix = document.getElementById('btnFix');
+  btnFix.addEventListener('click', ()=>{
+    body.classList.toggle('has-fix');
+    body.classList.toggle('no-fix', !body.classList.contains('has-fix'));
+    btnFix.classList.toggle('on', body.classList.contains('has-fix'));
+    btnFix.textContent = body.classList.contains('has-fix') ? 'fix GPS' : 'fără fix';
+  });
+
+  setBand('ontime');
+  renderSpeeds();
+</script>
+</body>
+</html>

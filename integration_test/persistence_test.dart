@@ -1,27 +1,27 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:retrometer/competition_providers.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:retrometer/widgets/editor_sheet.dart';
 
 import 'helpers/test_app.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  /// Finder for the first [TextField] inside the currently open modal bottom
-  /// sheet (the editor sheet).
-  Finder firstTextFieldInSheet() => find
+  /// Finder for the first [TextField] inside the currently open full-screen
+  /// editor page (the name field). The page is scrollable, so [enterText]
+  /// works even when the field is off-screen.
+  Finder firstTextFieldInEditor() => find
       .descendant(
-        of: find.byType(BottomSheet),
+        of: find.byType(EditorPageScaffold),
         matching: find.byType(TextField),
       )
       .first;
 
   testWidgets('persistence: a created competition survives an app restart',
       (WidgetTester tester) async {
-    // First launch: create a competition (writes retrometer.competitions).
+    // First launch: create a competition (the notifier persists it to the
+    // per-pump SQLite test DB).
     await pumpRetrometer(tester);
     await tester.pumpAndSettle(const Duration(milliseconds: 300));
 
@@ -29,30 +29,17 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byType(FloatingActionButton));
     await tester.pumpAndSettle();
-    await tester.enterText(firstTextFieldInSheet(), 'Persist');
-    await tester.scrollUntilVisible(
-      find.text('Salvează'),
-      200.0,
-      scrollable: find.byType(Scrollable).first,
-    );
+    await tester.enterText(firstTextFieldInEditor(), 'Persist');
+    // Save is always visible in the sticky bottom bar of the full-screen editor.
     await tester.tap(find.text('Salvează'));
     await tester.pumpAndSettle();
     expect(find.text('Persist'), findsOneWidget);
 
-    // The competition was persisted to SharedPreferences (the notifier's
-    // _persist writes on every mutation).
-    final prefs = await SharedPreferences.getInstance();
-    final encoded = prefs.getString('retrometer.competitions');
-    expect(encoded, isNotNull);
-    expect(encoded, contains('Persist'));
-
-    // Simulate a cold restart: a brand-new ProviderContainer (no inherited
-    // in-memory state) rehydrates competitionsProvider from SharedPreferences
-    // alone. If the JSON round-trip works, "Persist" comes back.
-    final restarted = ProviderContainer();
-    addTearDown(restarted.dispose);
-    final rehydrated = await restarted.read(competitionsProvider.future);
-    expect(rehydrated, hasLength(1));
-    expect(rehydrated.single.name, 'Persist');
+    // Simulate a cold restart: re-pump against the SAME test DB (resetDb: false)
+    // so the fresh ProviderScope rehydrates competitionsProvider from SQLite
+    // alone. If the round-trip works, "Persist" comes back.
+    await pumpRetrometer(tester, resetDb: false, resetPrefs: false);
+    await tester.pumpAndSettle(const Duration(milliseconds: 300));
+    expect(find.text('Persist'), findsOneWidget);
   });
 }

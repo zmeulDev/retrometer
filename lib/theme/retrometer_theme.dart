@@ -754,12 +754,12 @@ class RetrometerTypography {
   TextStyle get deltaSubtitle => TextStyle(
         color: colors.textSecondary,
         fontFamily: _Fonts.body,
-        fontSize: 22,
+        fontSize: 32,
       );
   TextStyle get deltaStageName => TextStyle(
         color: colors.primary,
         fontFamily: _Fonts.stencil,
-        fontSize: 22,
+        fontSize: 32,
         fontWeight: FontWeight.bold,
         fontFeatures: _tabular,
       );

@@ -61,6 +61,7 @@ class NumberField extends StatefulWidget {
     required this.onChanged,
     this.controller,
     this.decimals = 0,
+    this.errorText,
   });
 
   final String label;
@@ -68,6 +69,7 @@ class NumberField extends StatefulWidget {
   final ValueChanged<double> onChanged;
   final TextEditingController? controller;
   final int decimals;
+  final String? errorText;
 
   @override
   State<NumberField> createState() => _NumberFieldState();
@@ -110,6 +112,7 @@ class _NumberFieldState extends State<NumberField> {
             textAlign: TextAlign.center,
             style: context.text.fieldInput,
             inputFormatters: [formatter],
+            decoration: InputDecoration(errorText: widget.errorText),
             onChanged: (s) {
               final v = double.tryParse(s);
               if (v != null) widget.onChanged(v);
@@ -129,11 +132,13 @@ class IntField extends StatefulWidget {
     required this.controller,
     required this.label,
     required this.onChanged,
+    this.errorText,
   });
 
   final TextEditingController controller;
   final String label;
   final ValueChanged<int> onChanged;
+  final String? errorText;
 
   @override
   State<IntField> createState() => _IntFieldState();
@@ -155,6 +160,7 @@ class _IntFieldState extends State<IntField> {
             textAlign: TextAlign.center,
             style: context.text.fieldInputSmall,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            decoration: InputDecoration(errorText: widget.errorText),
             onChanged: (s) {
               final v = int.tryParse(s);
               if (v != null) widget.onChanged(v);
@@ -174,11 +180,13 @@ class DecimalField extends StatefulWidget {
     required this.controller,
     required this.label,
     required this.onChanged,
+    this.errorText,
   });
 
   final TextEditingController controller;
   final String label;
   final ValueChanged<double> onChanged;
+  final String? errorText;
 
   @override
   State<DecimalField> createState() => _DecimalFieldState();
@@ -203,6 +211,7 @@ class _DecimalFieldState extends State<DecimalField> {
             inputFormatters: [
               FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*$')),
             ],
+            decoration: InputDecoration(errorText: widget.errorText),
             onChanged: (s) {
               final v = double.tryParse(s);
               if (v != null) widget.onChanged(v);
@@ -214,18 +223,23 @@ class _DecimalFieldState extends State<DecimalField> {
   }
 }
 
-/// A plain labeled text field. The caller owns [controller].
+/// A plain labeled text field. The caller owns [controller]. Pass [errorText]
+/// to show inline validation feedback (null = no error).
 class LabeledTextField extends StatelessWidget {
   const LabeledTextField({
     super.key,
     required this.controller,
     required this.label,
     this.keyboardType,
+    this.errorText,
+    this.onChanged,
   });
 
   final TextEditingController controller;
   final String label;
   final TextInputType? keyboardType;
+  final String? errorText;
+  final ValueChanged<String>? onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -233,7 +247,8 @@ class LabeledTextField extends StatelessWidget {
       controller: controller,
       keyboardType: keyboardType,
       style: TextStyle(color: context.colors.textPrimary),
-      decoration: InputDecoration(labelText: label),
+      decoration: InputDecoration(labelText: label, errorText: errorText),
+      onChanged: onChanged,
     );
   }
 }
@@ -246,11 +261,13 @@ class CoordField extends StatefulWidget {
     required this.label,
     required this.controller,
     required this.onChanged,
+    this.errorText,
   });
 
   final String label;
   final TextEditingController controller;
   final ValueChanged<double> onChanged;
+  final String? errorText;
 
   @override
   State<CoordField> createState() => _CoordFieldState();
@@ -267,6 +284,7 @@ class _CoordFieldState extends State<CoordField> {
       decoration: InputDecoration(
         labelText: widget.label,
         isDense: true,
+        errorText: widget.errorText,
       ),
       onChanged: (s) {
         final v = double.tryParse(s);

@@ -5,7 +5,7 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 part 'models.freezed.dart';
 
 /// Lifecycle of the active stage.
-enum StageStatus { idle, inProgress, completed }
+enum StageStatus { idle, inProgress, paused, completed }
 
 /// Colour band for the Δ indicator, derived from [StageTelemetry] vs the
 /// ideal time. Kept as a value so the UI can `select` on it without rebuilding
@@ -17,6 +17,16 @@ enum DeltaBand {
   advance,
   /// Δt > 0 — late (driving slower than the imposed average).
   delay,
+}
+
+/// Live GPS fix quality, derived from [positionProvider] for the status LED.
+enum GpsFixStatus {
+  /// We have a position fix — green.
+  fixed,
+  /// Streaming but no fix yet (loading) — amber (searching).
+  searching,
+  /// Service off or permission denied (stream errored) — red.
+  unavailable,
 }
 
 /// Immutable configuration for the single active stage.
@@ -59,6 +69,11 @@ class StageConfig with _$StageConfig {
 /// tracks the lowest speed seen, **including 0** — stops are legit readings).
 /// Reset to defaults on every [StageController.startStage].
 ///
+/// Pause bookkeeping: `pausedSince` is the wall-clock moment the crew paused an
+/// in-progress stage (null otherwise); `pauseOffsetSeconds` is the cumulative
+/// paused duration subtracted from raw elapsed so the timer freezes during
+/// pauses and resumes without a jump. Both reset on start/reset.
+///
 /// `result` is the transient snapshot set when the stage stops — picked up by
 /// the result-persister provider to write it onto the owning `PlannedStage`.
 /// Cleared on the next start/reset.
@@ -73,6 +88,8 @@ class StageTelemetry with _$StageTelemetry {
     double? longitude,
     @Default(0.0) double maxSpeedKmh,
     double? minSpeedKmh,
+    DateTime? pausedSince,
+    @Default(0) int pauseOffsetSeconds,
     StageResult? result,
   }) = _StageTelemetry;
 }

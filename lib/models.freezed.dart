@@ -376,6 +376,8 @@ mixin _$StageTelemetry {
   double? get longitude => throw _privateConstructorUsedError;
   double get maxSpeedKmh => throw _privateConstructorUsedError;
   double? get minSpeedKmh => throw _privateConstructorUsedError;
+  DateTime? get pausedSince => throw _privateConstructorUsedError;
+  int get pauseOffsetSeconds => throw _privateConstructorUsedError;
   StageResult? get result => throw _privateConstructorUsedError;
 
   /// Create a copy of StageTelemetry
@@ -401,6 +403,8 @@ abstract class $StageTelemetryCopyWith<$Res> {
     double? longitude,
     double maxSpeedKmh,
     double? minSpeedKmh,
+    DateTime? pausedSince,
+    int pauseOffsetSeconds,
     StageResult? result,
   });
 
@@ -430,6 +434,8 @@ class _$StageTelemetryCopyWithImpl<$Res, $Val extends StageTelemetry>
     Object? longitude = freezed,
     Object? maxSpeedKmh = null,
     Object? minSpeedKmh = freezed,
+    Object? pausedSince = freezed,
+    Object? pauseOffsetSeconds = null,
     Object? result = freezed,
   }) {
     return _then(
@@ -466,6 +472,14 @@ class _$StageTelemetryCopyWithImpl<$Res, $Val extends StageTelemetry>
                 ? _value.minSpeedKmh
                 : minSpeedKmh // ignore: cast_nullable_to_non_nullable
                       as double?,
+            pausedSince: freezed == pausedSince
+                ? _value.pausedSince
+                : pausedSince // ignore: cast_nullable_to_non_nullable
+                      as DateTime?,
+            pauseOffsetSeconds: null == pauseOffsetSeconds
+                ? _value.pauseOffsetSeconds
+                : pauseOffsetSeconds // ignore: cast_nullable_to_non_nullable
+                      as int,
             result: freezed == result
                 ? _value.result
                 : result // ignore: cast_nullable_to_non_nullable
@@ -508,6 +522,8 @@ abstract class _$$StageTelemetryImplCopyWith<$Res>
     double? longitude,
     double maxSpeedKmh,
     double? minSpeedKmh,
+    DateTime? pausedSince,
+    int pauseOffsetSeconds,
     StageResult? result,
   });
 
@@ -537,6 +553,8 @@ class __$$StageTelemetryImplCopyWithImpl<$Res>
     Object? longitude = freezed,
     Object? maxSpeedKmh = null,
     Object? minSpeedKmh = freezed,
+    Object? pausedSince = freezed,
+    Object? pauseOffsetSeconds = null,
     Object? result = freezed,
   }) {
     return _then(
@@ -573,6 +591,14 @@ class __$$StageTelemetryImplCopyWithImpl<$Res>
             ? _value.minSpeedKmh
             : minSpeedKmh // ignore: cast_nullable_to_non_nullable
                   as double?,
+        pausedSince: freezed == pausedSince
+            ? _value.pausedSince
+            : pausedSince // ignore: cast_nullable_to_non_nullable
+                  as DateTime?,
+        pauseOffsetSeconds: null == pauseOffsetSeconds
+            ? _value.pauseOffsetSeconds
+            : pauseOffsetSeconds // ignore: cast_nullable_to_non_nullable
+                  as int,
         result: freezed == result
             ? _value.result
             : result // ignore: cast_nullable_to_non_nullable
@@ -594,6 +620,8 @@ class _$StageTelemetryImpl implements _StageTelemetry {
     this.longitude,
     this.maxSpeedKmh = 0.0,
     this.minSpeedKmh,
+    this.pausedSince,
+    this.pauseOffsetSeconds = 0,
     this.result,
   });
 
@@ -618,11 +646,16 @@ class _$StageTelemetryImpl implements _StageTelemetry {
   @override
   final double? minSpeedKmh;
   @override
+  final DateTime? pausedSince;
+  @override
+  @JsonKey()
+  final int pauseOffsetSeconds;
+  @override
   final StageResult? result;
 
   @override
   String toString() {
-    return 'StageTelemetry(startTime: $startTime, currentDistance: $currentDistance, currentSpeed: $currentSpeed, status: $status, latitude: $latitude, longitude: $longitude, maxSpeedKmh: $maxSpeedKmh, minSpeedKmh: $minSpeedKmh, result: $result)';
+    return 'StageTelemetry(startTime: $startTime, currentDistance: $currentDistance, currentSpeed: $currentSpeed, status: $status, latitude: $latitude, longitude: $longitude, maxSpeedKmh: $maxSpeedKmh, minSpeedKmh: $minSpeedKmh, pausedSince: $pausedSince, pauseOffsetSeconds: $pauseOffsetSeconds, result: $result)';
   }
 
   @override
@@ -645,6 +678,10 @@ class _$StageTelemetryImpl implements _StageTelemetry {
                 other.maxSpeedKmh == maxSpeedKmh) &&
             (identical(other.minSpeedKmh, minSpeedKmh) ||
                 other.minSpeedKmh == minSpeedKmh) &&
+            (identical(other.pausedSince, pausedSince) ||
+                other.pausedSince == pausedSince) &&
+            (identical(other.pauseOffsetSeconds, pauseOffsetSeconds) ||
+                other.pauseOffsetSeconds == pauseOffsetSeconds) &&
             (identical(other.result, result) || other.result == result));
   }
 
@@ -659,6 +696,8 @@ class _$StageTelemetryImpl implements _StageTelemetry {
     longitude,
     maxSpeedKmh,
     minSpeedKmh,
+    pausedSince,
+    pauseOffsetSeconds,
     result,
   );
 
@@ -684,6 +723,8 @@ abstract class _StageTelemetry implements StageTelemetry {
     final double? longitude,
     final double maxSpeedKmh,
     final double? minSpeedKmh,
+    final DateTime? pausedSince,
+    final int pauseOffsetSeconds,
     final StageResult? result,
   }) = _$StageTelemetryImpl;
 
@@ -703,6 +744,10 @@ abstract class _StageTelemetry implements StageTelemetry {
   double get maxSpeedKmh;
   @override
   double? get minSpeedKmh;
+  @override
+  DateTime? get pausedSince;
+  @override
+  int get pauseOffsetSeconds;
   @override
   StageResult? get result;
 

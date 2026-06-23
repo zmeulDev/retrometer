@@ -195,7 +195,7 @@ void main() {
     );
   });
 
-  test('auto-stop fires when a GPS fix enters the finish geofence', () async {
+  test('location finish raises the prompt (no silent auto-stop)', () async {
     final plan = PlannedStage(
       id: 's1',
       name: 'Etapa',
@@ -208,21 +208,25 @@ void main() {
       autoStop: true,
     );
     await readController().startStageFromPlan(plan);
-    // First fix seeds `last`; auto-stop needs a previous fix.
+    // Keep the finish notifier alive so its state is observable.
+    container.read(stageFinishProvider);
+    // First fix seeds `last`; the finish check needs a previous fix.
     gps.controller.add(_pos(speed: 10));
     await Future<void>.delayed(Duration.zero);
-    // Second fix: distanceBetween → 100 m ≤ 200 m radius → auto-stop.
+    // Second fix: distanceBetween → 100 m ≤ 200 m radius → finish prompt.
     gps.controller.add(_pos(speed: 20));
     await Future<void>.delayed(Duration.zero);
 
+    // The stage is NOT silently stopped — a finish prompt is pending instead.
+    expect(container.read(stageFinishProvider), StageFinishReason.location);
     expect(
       container.read(stageControllerProvider).telemetry.status,
-      StageStatus.completed,
+      StageStatus.inProgress,
     );
     expect(device.hapticCalls, greaterThanOrEqualTo(1));
   });
 
-  test('auto-stop is skipped when autoStop is disabled', () async {
+  test('location finish is skipped when autoStop is disabled', () async {
     final plan = PlannedStage(
       id: 's2',
       name: 'Etapa',
@@ -235,14 +239,296 @@ void main() {
       autoStop: false,
     );
     await readController().startStageFromPlan(plan);
+    container.read(stageFinishProvider);
     gps.controller.add(_pos(speed: 10));
     await Future<void>.delayed(Duration.zero);
     gps.controller.add(_pos(speed: 20));
     await Future<void>.delayed(Duration.zero);
 
+    // No finish prompt, stage still running.
+    expect(container.read(stageFinishProvider), isNull);
     expect(
       container.read(stageControllerProvider).telemetry.status,
       StageStatus.inProgress,
+    );
+  });
+
+  test('time finish raises the prompt when elapsed reaches allocatedTime',
+      () async {
+    readController().updateConfig(const StageConfig(
+      id: 's',
+      name: 'Timp',
+      targetAvgSpeed: 40,
+      maxSpeedLimit: 60,
+      allocatedTimeSeconds: 1,
+    ));
+    await readController().startStage();
+    // Register the finish notifier early (elapsed 0) so its elapsed listener
+    // catches the crossing of the 1 s allocation on the next 1 Hz tick.
+    container.read(stageFinishProvider);
+
+    // Poll up to ~3 s for the 1 Hz clock to tick elapsed to 1.
+    StageFinishReason? reason;
+    for (var i = 0; i < 30 && reason == null; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      reason = container.read(stageFinishProvider);
+    }
+    expect(reason, StageFinishReason.time);
+    expect(
+      container.read(stageControllerProvider).telemetry.status,
+      StageStatus.inProgress,
+    );
+  });
+
+  test('confirm() stops the stage and clears the finish prompt', () async {
+    final plan = PlannedStage(
+      id: 's3',
+      name: 'Etapa',
+      startTime: DateTime.now(),
+      latitude: 0,
+      longitude: 0,
+      endLatitude: 1.0,
+      endLongitude: 1.0,
+      endGeofenceRadiusM: 200,
+      autoStop: true,
+    );
+    await readController().startStageFromPlan(plan);
+    container.read(stageFinishProvider);
+    gps.controller.add(_pos(speed: 10));
+    await Future<void>.delayed(Duration.zero);
+    gps.controller.add(_pos(speed: 20));
+    await Future<void>.delayed(Duration.zero);
+    expect(container.read(stageFinishProvider), StageFinishReason.location);
+
+    await container.read(stageFinishProvider.notifier).confirm();
+    expect(container.read(stageFinishProvider), isNull);
+    expect(
+      container.read(stageControllerProvider).telemetry.status,
+      StageStatus.completed,
+    );
+  });
+
+  // --- pause / resume -------------------------------------------------------
+
+  test('stageElapsedSeconds excludes paused intervals (pure helper)', () {
+    final start = DateTime(2026, 1, 1, 10, 0, 0);
+    // 60s of running, no pause → 60.
+    final running = StageTelemetry(startTime: start);
+    expect(
+      stageElapsedSeconds(running, start.add(const Duration(seconds: 60))),
+      60,
+    );
+    // Paused 40s in: elapsed frozen at the pause moment regardless of `now`.
+    final paused = StageTelemetry(
+      startTime: start,
+      pausedSince: start.add(const Duration(seconds: 40)),
+    );
+    expect(
+      stageElapsedSeconds(paused, start.add(const Duration(seconds: 90))),
+      40,
+    );
+    // After a 20s pause resumed: 90s wall − 20s paused → 70s elapsed.
+    final resumed = StageTelemetry(
+      startTime: start,
+      pauseOffsetSeconds: 20,
+    );
+    expect(
+      stageElapsedSeconds(resumed, start.add(const Duration(seconds: 90))),
+      70,
+    );
+    // Guard: never negative.
+    final clamped = StageTelemetry(startTime: start, pauseOffsetSeconds: 9999);
+    expect(
+      stageElapsedSeconds(clamped, start.add(const Duration(seconds: 10))),
+      0,
+    );
+  });
+
+  test('pauseStage freezes distance: fixes during pause are ignored', () async {
+    await readController().startStage();
+    gps.controller.add(_pos(speed: 10)); // seeds `last`
+    await Future<void>.delayed(Duration.zero);
+    gps.controller.add(_pos(speed: 20)); // +0.1 km
+    await Future<void>.delayed(Duration.zero);
+    final before =
+        container.read(stageControllerProvider).telemetry.currentDistance;
+    expect(before, closeTo(0.1, 1e-9));
+
+    readController().pauseStage();
+    final t = container.read(stageControllerProvider).telemetry;
+    expect(t.status, StageStatus.paused);
+    expect(t.pausedSince, isNotNull);
+    // Wakelock released on pause (start armed it once).
+    expect(device.disableCalls, 1);
+
+    // The GPS subscription is cancelled, so further fixes do nothing.
+    gps.controller.add(_pos(speed: 30));
+    gps.controller.add(_pos(speed: 40));
+    await Future<void>.delayed(Duration.zero);
+    expect(
+      container.read(stageControllerProvider).telemetry.currentDistance,
+      closeTo(0.1, 1e-9),
+    );
+  });
+
+  test('resumeStage returns to inProgress and re-subscribes GPS', () async {
+    await readController().startStage();
+    expect(device.enableCalls, 1);
+    readController().pauseStage();
+
+    await readController().resumeStage();
+    final t = container.read(stageControllerProvider).telemetry;
+    expect(t.status, StageStatus.inProgress);
+    expect(t.pausedSince, isNull);
+    // Wakelock re-armed on resume.
+    expect(device.enableCalls, 2);
+
+    // First post-resume fix re-seeds `last` (0 m), second adds 0.1 km — no
+    // jump from a stale pre-pause fix.
+    gps.controller.add(_pos(speed: 10));
+    await Future<void>.delayed(Duration.zero);
+    gps.controller.add(_pos(speed: 20));
+    await Future<void>.delayed(Duration.zero);
+    expect(
+      container.read(stageControllerProvider).telemetry.currentDistance,
+      closeTo(0.1, 1e-9),
+    );
+  });
+
+  test('stopStage finalizes from paused', () async {
+    await readController().startStage();
+    readController().pauseStage();
+    readController().stopStage();
+    final t = container.read(stageControllerProvider).telemetry;
+    expect(t.status, StageStatus.completed);
+    expect(t.result, isNotNull);
+  });
+
+  test('pauseStage is a no-op when idle', () async {
+    readController().pauseStage();
+    expect(
+      container.read(stageControllerProvider).telemetry.status,
+      StageStatus.idle,
+    );
+    expect(device.disableCalls, 0);
+  });
+
+  test('updateConfig is blocked while paused', () async {
+    await readController().startStage();
+    readController().pauseStage();
+    readController().updateConfig(const StageConfig(
+      id: 'x',
+      name: 'blocked',
+      targetAvgSpeed: 99,
+      maxSpeedLimit: 99,
+    ));
+    expect(
+      container.read(stageControllerProvider).config.targetAvgSpeed,
+      isNot(99),
+    );
+  });
+
+  // --- pause/stop freeze Δ + over-speed (regression for the cockpit bugs) ---
+
+  test('pause freezes Δ: deltaSecondsProvider stops drifting while paused',
+      () async {
+    readController().updateConfig(const StageConfig(
+      id: 'x',
+      name: 'freeze',
+      targetAvgSpeed: 40,
+      maxSpeedLimit: 120,
+    ));
+    await readController().startStage();
+    // Seed distance so t_ideal is non-zero and Δ is meaningful.
+    gps.controller.add(_pos(speed: 10));
+    await Future<void>.delayed(Duration.zero);
+    gps.controller.add(_pos(speed: 20));
+    await Future<void>.delayed(Duration.zero);
+
+    readController().pauseStage();
+    expect(
+      container.read(stageControllerProvider).telemetry.status,
+      StageStatus.paused,
+    );
+
+    // While paused the provider resolves "now" to pausedSince (a fixed
+    // instant) and does not watch clockTick — so Δ is frozen across wall-clock
+    // time. (Pre-fix, Δ kept drifting into ÎNTÂRZIERE during a pause.)
+    final deltaAtPause = container.read(deltaSecondsProvider);
+    await Future<void>.delayed(const Duration(seconds: 1, milliseconds: 200));
+    final deltaAfterWait = container.read(deltaSecondsProvider);
+    expect(deltaAfterWait, closeTo(deltaAtPause, 1e-9));
+
+    // Elapsed is frozen too while paused.
+    final elapsedAtPause = container.read(elapsedSecondsProvider);
+    await Future<void>.delayed(const Duration(seconds: 1, milliseconds: 200));
+    expect(container.read(elapsedSecondsProvider), elapsedAtPause);
+  });
+
+  test('stop freezes Δ and clears over-speed: no drift / flashing after STOP',
+      () async {
+    readController().updateConfig(const StageConfig(
+      id: 'x',
+      name: 'stop',
+      targetAvgSpeed: 40,
+      maxSpeedLimit: 30, // low so the fix below is over-speed
+    ));
+    await readController().startStage();
+    gps.controller.add(_pos(speed: 14)); // ~50 km/h → over the 30 limit
+    await Future<void>.delayed(Duration.zero);
+    expect(container.read(isOverSpeedProvider), isTrue);
+
+    readController().stopStage();
+    expect(
+      container.read(stageControllerProvider).telemetry.status,
+      StageStatus.completed,
+    );
+
+    // Over-speed clears on STOP — the alert unmounts and stops pulsing.
+    expect(container.read(isOverSpeedProvider), isFalse);
+
+    // Δ freezes at the stop instant (result.completedAt) and does not drift
+    // with the 1 Hz clock tick after STOP. (Pre-fix, Δ kept advancing and the
+    // flash kept pulsing after STOP.)
+    final deltaAtStop = container.read(deltaSecondsProvider);
+    await Future<void>.delayed(const Duration(seconds: 1, milliseconds: 200));
+    expect(
+      container.read(deltaSecondsProvider),
+      closeTo(deltaAtStop, 1e-9),
+    );
+
+    // Elapsed freezes at the snapshot's elapsedSeconds after STOP.
+    final elapsedAtStop = container.read(elapsedSecondsProvider);
+    await Future<void>.delayed(const Duration(seconds: 1, milliseconds: 200));
+    expect(container.read(elapsedSecondsProvider), elapsedAtStop);
+  });
+
+  test('resume makes Δ live again (no jump from the frozen pause value)',
+      () async {
+    readController().updateConfig(const StageConfig(
+      id: 'x',
+      name: 'resume',
+      targetAvgSpeed: 40,
+      maxSpeedLimit: 120,
+    ));
+    await readController().startStage();
+    gps.controller.add(_pos(speed: 10));
+    await Future<void>.delayed(Duration.zero);
+
+    readController().pauseStage();
+    final deltaFrozen = container.read(deltaSecondsProvider);
+    await readController().resumeStage();
+    expect(
+      container.read(stageControllerProvider).telemetry.status,
+      StageStatus.inProgress,
+    );
+    // On resume the provider watches clockTick again, so Δ advances from the
+    // frozen value rather than staying stuck (and pauseOffset keeps it
+    // jump-free — no sudden lurch).
+    await Future<void>.delayed(const Duration(seconds: 1, milliseconds: 200));
+    expect(
+      container.read(deltaSecondsProvider),
+      greaterThanOrEqualTo(deltaFrozen),
     );
   });
 
@@ -340,5 +626,21 @@ void main() {
     } else {
       expect(avg, isNull);
     }
+  });
+
+  // --- GPS fix status LED ---------------------------------------------------
+
+  test('gpsFixStatusProvider is searching then fixed as fixes arrive',
+      () async {
+    // Reading the LED provider builds the position stream (async* — it awaits
+    // the service/permission checks before subscribing). Before any fix
+    // arrives it is loading → searching.
+    container.read(gpsFixStatusProvider);
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    expect(container.read(gpsFixStatusProvider), GpsFixStatus.searching);
+    // Emit a fix → fixed.
+    gps.controller.add(_pos(speed: 10));
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    expect(container.read(gpsFixStatusProvider), GpsFixStatus.fixed);
   });
 }

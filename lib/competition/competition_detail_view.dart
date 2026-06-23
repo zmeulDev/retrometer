@@ -12,6 +12,7 @@ import '../widgets/metadata_tile.dart';
 import '../widgets/speed_summary_line.dart';
 import 'competition_editor.dart';
 import 'stage_editor.dart';
+import 'stage_run_overview.dart';
 
 // ---------------------------------------------------------------------------
 // Competition detail screen.
@@ -467,7 +468,12 @@ class _HistoryTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MetadataTile(
-      onTap: null,
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => StageRunOverviewScreen(entry: entry),
+        ),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

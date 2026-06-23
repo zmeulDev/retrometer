@@ -48,7 +48,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('1.00'), findsOneWidget); // 1 km accumulated
-    expect(find.textContaining('acum 18'), findsOneWidget);
+    // The instantaneous speed (acum) renders as a gps_fixed icon + '18' (the
+    // old 'țintă / reală / acum' text labels were replaced by icons).
+    expect(find.text('18'), findsOneWidget);
 
     // Stop the stage → completed, START reappears.
     await tester.tap(find.text('STOP'));

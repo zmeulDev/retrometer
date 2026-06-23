@@ -1,16 +1,20 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:path/path.dart' as path;
 import 'package:retrometer/cockpit_view.dart';
 import 'package:retrometer/cockpit/cockpit_tripmeter.dart';
 import 'package:retrometer/main.dart';
+import 'package:retrometer/services/competition_repository.dart';
 import 'package:retrometer/services/device_service.dart';
 import 'package:retrometer/services/gps_service.dart';
 import 'package:retrometer/state_providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 /// Fake GPS for the distance-fit tests: emits positions pushed into
 /// [controller] and reports a fixed [metresPerStep] for every
@@ -79,8 +83,20 @@ Position _pos({required double speed}) => Position(
       speedAccuracy: 0,
     );
 
-/// Start a stage and feed two GPS fixes so the trip-meter lands on
-/// `metresPerStep / 1000` km. Returns the container so the caller can assert.
+/// A throwaway SQLite-backed repository at a unique temp path, so the full-app
+/// pumps (which read `competitionsProvider` on the host) don't hit sqflite's
+/// missing platform channels.
+SqliteCompetitionRepository _newRepo() {
+  final dir = Directory.systemTemp.createTempSync('retrometer_widget_test_');
+  addTearDown(() {
+    if (dir.existsSync()) dir.delete(recursive: true);
+  });
+  return SqliteCompetitionRepository(
+    databaseFactory: databaseFactoryFfi,
+    pathProvider: () async => path.join(dir.path, 'test.db'),
+  );
+}
+
 Future<ProviderContainer> _startAndFeed(
   WidgetTester tester,
   double metresPerStep,
@@ -113,6 +129,8 @@ Future<ProviderContainer> _startAndFeed(
 }
 
 void main() {
+  setUpAll(sqfliteFfiInit);
+
   testWidgets('Cockpit renders the three zones with idle defaults',
       (WidgetTester tester) async {
     // Landscape dashboard mount.
@@ -123,7 +141,12 @@ void main() {
     // Skip the first-run onboarding dialog for this smoke test.
     SharedPreferences.setMockInitialValues({'retrometer.onboarded': true});
 
-    await tester.pumpWidget(const ProviderScope(child: RetrometerApp()));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [competitionRepositoryProvider.overrideWithValue(_newRepo())],
+        child: const RetrometerApp(),
+      ),
+    );
     await tester.pumpAndSettle(const Duration(milliseconds: 300));
 
     // Center zone: Δ readout at 0.0 (idle ⇒ on-time / green) with a clear
@@ -153,7 +176,12 @@ void main() {
 
     SharedPreferences.setMockInitialValues({'retrometer.onboarded': true});
 
-    await tester.pumpWidget(const ProviderScope(child: RetrometerApp()));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [competitionRepositoryProvider.overrideWithValue(_newRepo())],
+        child: const RetrometerApp(),
+      ),
+    );
     await tester.pumpAndSettle(const Duration(milliseconds: 300));
 
     // Two-row top bar still shows the labeled START control.
@@ -177,8 +205,12 @@ void main() {
     // Use the auto-dispose ProviderScope (so the clock/auto-start timers are
     // cancelled when the tree unmounts), then grab its container to set a
     // fractional target.
-    await tester
-        .pumpWidget(const ProviderScope(child: MaterialApp(home: CockpitView())));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [competitionRepositoryProvider.overrideWithValue(_newRepo())],
+        child: const MaterialApp(home: CockpitView()),
+      ),
+    );
     final container = ProviderScope.containerOf(
       tester.element(find.byType(CockpitView)),
       listen: false,
@@ -191,8 +223,9 @@ void main() {
         );
     await tester.pumpAndSettle();
 
-    // The Δ zone bottom line shows the fractional target verbatim.
-    expect(find.textContaining('țintă 35.9'), findsOneWidget);
+    // The Δ zone's target-speed icon pair shows the fractional target verbatim
+    // (flag icon + value, no 'țintă' label anymore).
+    expect(find.text('35.9'), findsOneWidget);
   });
 
   testWidgets('whole-number target average stays clean (40, not 40.0)',
@@ -203,8 +236,12 @@ void main() {
 
     SharedPreferences.setMockInitialValues({'retrometer.onboarded': true});
 
-    await tester
-        .pumpWidget(const ProviderScope(child: MaterialApp(home: CockpitView())));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [competitionRepositoryProvider.overrideWithValue(_newRepo())],
+        child: const MaterialApp(home: CockpitView()),
+      ),
+    );
     final container = ProviderScope.containerOf(
       tester.element(find.byType(CockpitView)),
       listen: false,
@@ -217,8 +254,10 @@ void main() {
         );
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('țintă 40'), findsOneWidget);
-    expect(find.textContaining('țintă 40.0'), findsNothing);
+    // The whole-number target renders clean (40, not 40.0) next to the flag
+    // icon.
+    expect(find.text('40'), findsOneWidget);
+    expect(find.text('40.0'), findsNothing);
   });
 
   testWidgets('trip-meter fits a large distance (100.00) on landscape',

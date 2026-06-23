@@ -5,6 +5,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'guide_view.dart';
+import 'license_view.dart';
 import 'location_disclosure.dart';
 import 'services/gps_service.dart';
 import 'theme/retrometer_theme.dart';
@@ -78,10 +79,10 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                 ListActionRow(
                   icon: Icons.description_outlined,
                   label: 'Licențe open-source',
-                  onTap: () => showLicensePage(
-                    context: context,
-                    applicationName: 'Retrometer',
-                    applicationVersion: version,
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const LicensesScreen(),
+                    ),
                   ),
                 ),
               ],
