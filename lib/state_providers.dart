@@ -9,6 +9,15 @@ import 'models.dart';
 import 'rally_math.dart';
 import 'services/device_service.dart';
 import 'services/gps_service.dart';
+import 'services/telemetry_logger.dart';
+
+/// Minimum distance (metres) between two fixes before a GPS speed reading of
+/// 0 is treated as "unavailable" and the speed is derived from distance/time.
+/// Some Android FusedLocation providers report `position.speed == 0` even
+/// while the device is moving (observed on the A059 test device), so a 0
+/// reading is only trusted when the fixes are close together; below this it's
+/// treated as a real stop (and absorbs ordinary GPS jitter at a standstill).
+const double _kMovingThresholdMetres = 5.0;
 
 /// Owns the single active stage: its [StageConfig] and live [StageTelemetry].
 ///
@@ -40,6 +49,10 @@ class StageController extends Notifier<RallyState> {
       return;
     }
     state = state.copyWith(config: config);
+    ref.read(telemetryLoggerProvider).stageEvent(
+          type: 'config_update',
+          config: config,
+        );
   }
 
   /// Begin the stage: reset distance, record start time, enable wakelock,
@@ -73,6 +86,12 @@ class StageController extends Notifier<RallyState> {
       ),
     );
 
+    ref.read(telemetryLoggerProvider).stageEvent(
+          type: 'start',
+          config: config,
+          telemetry: state.telemetry,
+        );
+
     await ref.read(deviceServiceProvider).enableWakelock();
     await _subscribeGps(gps);
   }
@@ -91,6 +110,11 @@ class StageController extends Notifier<RallyState> {
         pausedSince: DateTime.now(),
       ),
     );
+    ref.read(telemetryLoggerProvider).stageEvent(
+          type: 'pause',
+          config: config,
+          telemetry: state.telemetry,
+        );
   }
 
   /// Resume a paused stage: fold the paused interval into `pauseOffsetSeconds`
@@ -111,6 +135,12 @@ class StageController extends Notifier<RallyState> {
         pauseOffsetSeconds: telemetry.pauseOffsetSeconds + extra,
       ),
     );
+    ref.read(telemetryLoggerProvider).stageEvent(
+          type: 'resume',
+          config: config,
+          telemetry: state.telemetry,
+          extra: {'pausedForSeconds': extra},
+        );
     await ref.read(deviceServiceProvider).enableWakelock();
     await _subscribeGps(ref.read(gpsServiceProvider));
   }
@@ -134,17 +164,20 @@ class StageController extends Notifier<RallyState> {
         allocatedTimeSeconds: plan.allocatedTimeSeconds,
       ),
     );
+    ref.read(telemetryLoggerProvider).event(
+          type: 'plan_loaded',
+          data: {'stageId': plan.id, 'name': plan.name},
+        );
     await startStage();
   }
 
   Future<void> _subscribeGps(GpsService gps) async {
     await _positionSub?.cancel();
     Position? last;
+    final logger = ref.read(telemetryLoggerProvider);
 
     _positionSub = gps.positionStream().listen((pos) async {
       final double addedMetres;
-      final double speedKmh;
-
       if (last != null) {
         addedMetres = gps.distanceBetween(
           startLatitude: last!.latitude,
@@ -156,19 +189,38 @@ class StageController extends Notifier<RallyState> {
         addedMetres = 0.0;
       }
 
-      // position.speed is in m/s and may be NaN / -1 when unavailable.
-      if (!pos.speed.isNaN && pos.speed >= 0) {
-        speedKmh = pos.speed * 3.6;
-      } else if (last != null) {
-        final dtMs = pos.timestamp.difference(last!.timestamp).inMilliseconds;
-        speedKmh = dtMs > 0
+      final hadPreviousFix = last != null;
+      final dtMs = hadPreviousFix
+          ? pos.timestamp.difference(last!.timestamp).inMilliseconds
+          : 0;
+
+      // position.speed is in m/s and may be NaN / -1 when unavailable. Some
+      // Android FusedLocation providers return 0.0 even while moving (observed
+      // on the A059), so a 0 reading is only trusted when the fixes are close;
+      // if we covered real ground this interval the GPS speed is unreliable and
+      // we derive the speed from the distance/time between fixes instead.
+      final gpsSpeedKmh =
+          (!pos.speed.isNaN && pos.speed >= 0) ? pos.speed * 3.6 : null;
+
+      final double speedKmh;
+      if (gpsSpeedKmh != null && gpsSpeedKmh > 0) {
+        // GPS reports actual movement — trust it.
+        speedKmh = gpsSpeedKmh;
+      } else if (hadPreviousFix) {
+        final derivedKmh = dtMs > 0
             ? (addedMetres / 1000.0) / (dtMs / 3600000.0)
             : telemetry.currentSpeed;
+        // GPS says 0 (or is unavailable) but we moved past the jitter threshold
+        // — the reading is unreliable, use the distance/time-derived speed.
+        // Below the threshold we trust "stopped" (real stops and GPS jitter
+        // both read 0 here, preserving "min includes 0").
+        speedKmh = addedMetres > _kMovingThresholdMetres
+            ? derivedKmh
+            : (gpsSpeedKmh ?? 0.0);
       } else {
         speedKmh = 0.0;
       }
 
-      final hadPreviousFix = last != null;
       last = pos;
 
       final newMax = math.max(telemetry.maxSpeedKmh, speedKmh);
@@ -185,6 +237,19 @@ class StageController extends Notifier<RallyState> {
           maxSpeedKmh: newMax,
           minSpeedKmh: newMin,
         ),
+      );
+
+      logger.fix(
+        pos: pos,
+        addedMetres: addedMetres,
+        dtMs: dtMs,
+        gpsSpeedKmh: gpsSpeedKmh,
+        speedKmh: speedKmh,
+        distanceKm: telemetry.currentDistance,
+        maxSpeedKmh: telemetry.maxSpeedKmh,
+        minSpeedKmh: telemetry.minSpeedKmh,
+        baseline: !hadPreviousFix,
+        status: telemetry.status,
       );
 
       // Finish prompt (location): once we have at least two fixes (so the
@@ -204,6 +269,10 @@ class StageController extends Notifier<RallyState> {
           endLongitude: cfg.endLongitude!,
         );
         if (dToEnd <= cfg.endGeofenceRadiusM) {
+          logger.event(type: 'finish_entered', data: {
+            'dToEndM': dToEnd,
+            'radiusM': cfg.endGeofenceRadiusM,
+          });
           await ref.read(deviceServiceProvider).haptic();
           ref.read(stageFinishProvider.notifier).requestLocationFinish();
           return;
@@ -233,6 +302,12 @@ class StageController extends Notifier<RallyState> {
         result: result,
       ),
     );
+    ref.read(telemetryLoggerProvider).stageEvent(
+          type: 'stop',
+          config: config,
+          telemetry: state.telemetry,
+          extra: {'result': result.toJson()},
+        );
   }
 
   /// Snapshot a [StageResult] from the current telemetry: avg = totalDistance /
@@ -259,6 +334,11 @@ class StageController extends Notifier<RallyState> {
     _positionSub = null;
     ref.read(deviceServiceProvider).disableWakelock();
     state = state.copyWith(telemetry: const StageTelemetry());
+    ref.read(telemetryLoggerProvider).stageEvent(
+          type: 'reset',
+          config: config,
+          telemetry: state.telemetry,
+        );
   }
 
   /// Manually nudge the accumulated distance for sync with physical markers.
@@ -271,6 +351,11 @@ class StageController extends Notifier<RallyState> {
       telemetry: telemetry.copyWith(currentDistance: next),
     );
     ref.read(deviceServiceProvider).haptic();
+    ref.read(telemetryLoggerProvider).stageEvent(
+          type: 'adjust',
+          config: config,
+          extra: {'offsetKm': offset, 'newDistanceKm': next},
+        );
   }
 }
 
@@ -322,6 +407,10 @@ class StageFinishNotifier extends Notifier<StageFinishReason?> {
     if (s.telemetry.status != StageStatus.inProgress) return;
     final allocated = s.config.allocatedTimeSeconds;
     if (allocated > 0 && elapsed >= allocated) {
+      ref.read(telemetryLoggerProvider).event(
+            type: 'finish_time',
+            data: {'elapsedSec': elapsed, 'allocatedSec': allocated},
+          );
       _setPending(StageFinishReason.time);
     }
   }
@@ -331,6 +420,7 @@ class StageFinishNotifier extends Notifier<StageFinishReason?> {
   /// prompted).
   void requestLocationFinish() {
     if (_promptedThisStage) return;
+    ref.read(telemetryLoggerProvider).event(type: 'finish_location');
     _setPending(StageFinishReason.location);
   }
 
@@ -345,6 +435,7 @@ class StageFinishNotifier extends Notifier<StageFinishReason?> {
 
   /// Dismiss the prompt without stopping (snooze for the rest of this stage).
   void dismiss() {
+    ref.read(telemetryLoggerProvider).event(type: 'finish_dismiss');
     try {
       state = null;
     } on StateError {
@@ -356,6 +447,7 @@ class StageFinishNotifier extends Notifier<StageFinishReason?> {
   /// synchronous, so this returns immediately (the `Future<void>` keeps the
   /// listener's `await` happy and leaves room for a future async stop).
   Future<void> confirm() async {
+    ref.read(telemetryLoggerProvider).event(type: 'finish_confirm');
     ref.read(stageControllerProvider.notifier).stopStage();
     try {
       state = null;

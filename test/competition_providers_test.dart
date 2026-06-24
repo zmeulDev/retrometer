@@ -14,6 +14,7 @@ import 'package:retrometer/models.dart';
 import 'package:retrometer/services/competition_repository.dart';
 import 'package:retrometer/services/device_service.dart';
 import 'package:retrometer/services/gps_service.dart';
+import 'package:retrometer/services/telemetry_logger.dart';
 import 'package:retrometer/state_providers.dart';
 
 /// Fake GPS for competition tests: reports [distanceToGeofence] for every
@@ -98,6 +99,46 @@ class _FakeDeviceService implements DeviceService {
   Future<void> haptic({int durationMs = 30}) async {}
 }
 
+/// Captures every logger call in memory (no disk) so competition tests can
+/// assert the auto-start hookpoints are recorded. Only `event` is exercised
+/// here; the full-surface recorder lives in `state_providers_test.dart`.
+class _RecordingLogger implements TelemetryLogger {
+  final List<Map<String, Object?>> records = [];
+
+  @override
+  void fix({
+    required Position pos,
+    required double addedMetres,
+    required int dtMs,
+    required double? gpsSpeedKmh,
+    required double speedKmh,
+    required double distanceKm,
+    required double maxSpeedKmh,
+    required double? minSpeedKmh,
+    required bool baseline,
+    required StageStatus status,
+  }) {}
+
+  @override
+  void stageEvent({
+    required String type,
+    required StageConfig config,
+    StageTelemetry? telemetry,
+    Map<String, Object?> extra = const {},
+  }) {}
+
+  @override
+  void event({required String type, Map<String, Object?> data = const {}}) {
+    records.add({'type': type, 'data': data});
+  }
+
+  @override
+  Future<void> flush() async {}
+
+  @override
+  Future<void> close() async {}
+}
+
 Position _fix() => Position(
       longitude: 24.0,
       latitude: 45.0,
@@ -167,6 +208,7 @@ Competition _competition({List<PlannedStage> stages = const []}) => Competition(
 void main() {
   late _FakeGpsService gps;
   late _FakeDeviceService device;
+  late _RecordingLogger logger;
   late SqliteCompetitionRepository repo;
   late Directory repoDir;
   late ProviderContainer container;
@@ -177,6 +219,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     gps = _FakeGpsService();
     device = _FakeDeviceService();
+    logger = _RecordingLogger();
     // SQLite-backed repository at a unique temp path (host `flutter test` has no
     // sqflite platform channels, so we drive an in-process ffi factory). The
     // same repo instance is reused by the "fresh container" test below so the
@@ -191,6 +234,7 @@ void main() {
         gpsServiceProvider.overrideWithValue(gps),
         deviceServiceProvider.overrideWithValue(device),
         competitionRepositoryProvider.overrideWithValue(repo),
+        telemetryLoggerProvider.overrideWithValue(logger),
       ],
     );
   });
@@ -614,6 +658,45 @@ void main() {
         isNotNull,
       );
     });
+
+    test('auto-start prompt and decline are recorded in the telemetry log',
+        () async {
+      // Location-only stage, device in geofence → the monitor surfaces a
+      // pending prompt (an `autostart_prompt` event). Declining records an
+      // `autostart_decline` event.
+      final baseNow = DateTime(2026, 6, 21, 12, 0);
+      container.read(autoStartMonitorProvider.notifier).now = () => baseNow;
+      gps.distanceToGeofence = 0;
+
+      await armMonitor(
+        _stage(latitude: 45.0, longitude: 24.0),
+        autoConfirm: false,
+      );
+      expect(
+        container.read(autoStartMonitorProvider).pendingPrompt,
+        isNotNull,
+      );
+
+      // A prompt event was logged carrying the trigger reason and stage id.
+      final prompt = logger.records.firstWhere(
+        (r) => r['type'] == 'autostart_prompt',
+        orElse: () => fail('autostart_prompt not logged'),
+      );
+      final promptData = prompt['data'] as Map<String, Object?>;
+      expect(promptData['stageId'], _stageId);
+      // `reason` is a human-readable string (e.g. "în geofence (0 m)" for a
+      // location pass, "la ora 12:00" for a time pass) — assert it's present.
+      expect(promptData['reason'], isA<String>());
+      expect((promptData['reason'] as String).isNotEmpty, isTrue);
+
+      // Decline → snooze → an `autostart_decline` event is logged.
+      container.read(autoStartMonitorProvider.notifier).dismissPending();
+      final decline = logger.records.firstWhere(
+        (r) => r['type'] == 'autostart_decline',
+        orElse: () => fail('autostart_decline not logged'),
+      );
+      expect((decline['data'] as Map<String, Object?>)['stageId'], _stageId);
+    });
   });
 
   test('competitions + stages persist add/update/remove across a fresh '
@@ -637,6 +720,7 @@ void main() {
         gpsServiceProvider.overrideWithValue(gps),
         deviceServiceProvider.overrideWithValue(device),
         competitionRepositoryProvider.overrideWithValue(repo),
+        telemetryLoggerProvider.overrideWithValue(logger),
       ],
     );
     addTearDown(container2.dispose);
@@ -670,6 +754,7 @@ void main() {
         gpsServiceProvider.overrideWithValue(gps),
         deviceServiceProvider.overrideWithValue(device),
         competitionRepositoryProvider.overrideWithValue(repo),
+        telemetryLoggerProvider.overrideWithValue(logger),
       ],
     );
     addTearDown(fresh.dispose);

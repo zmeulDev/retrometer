@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as path;
+import 'package:sqflite/sqflite.dart';
 
 import 'cockpit/auto_start_prompt_listener.dart';
 import 'cockpit/stage_finish_prompt_listener.dart';
 import 'cockpit_view.dart';
 import 'navigator_key.dart';
 import 'services/license_registry.dart';
+import 'services/telemetry_logger.dart';
 import 'theme/retrometer_theme.dart';
 import 'theme/theme_mode_provider.dart';
 
@@ -18,7 +21,22 @@ Future<void> main() async {
   // Hydrate the persisted theme mode before the first frame so the app never
   // flashes the wrong theme. A standalone container owns the provider; the
   // same container is reused by the app so the loaded mode is visible.
-  final container = ProviderContainer();
+  //
+  // The telemetry logger writes a durable JSONL log of every GPS fix and
+  // stage/auto-start/finish event next to `retrometer.db` (pull it via
+  // `adb run-as com.zmeul.retrometer cat databases/retrometer_telemetry.log`
+  // and summarize with `dart run tool/analyze_telemetry_log.dart`). Always-on
+  // for real-track diagnostics — gate off via a flag before Play Store.
+  final container = ProviderContainer(
+    overrides: [
+      telemetryLoggerProvider.overrideWithValue(
+        FileTelemetryLogger(
+          pathProvider: () async =>
+              path.join(await getDatabasesPath(), 'retrometer_telemetry.log'),
+        ),
+      ),
+    ],
+  );
   await container.read(themeModeProvider.notifier).load();
   runApp(
     UncontrolledProviderScope(

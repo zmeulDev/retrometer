@@ -42,6 +42,10 @@ Future<void> showStageEditor(
     autoStop: result.autoStop,
     totalDistanceKm: result.totalDistanceKm,
     allocatedTimeSeconds: result.allocatedTimeSeconds,
+    // Preserve the last run's result — editing a stage (e.g. adding a finish
+    // geofence after it was run) must not wipe the saved "last result" shown
+    // on the detail tile. History (append-only) is unaffected either way.
+    result: existing?.result,
   );
   if (existing == null) {
     await notifier.addStage(competitionId, stage);

@@ -8,6 +8,7 @@ import 'models.dart';
 import 'services/competition_repository.dart';
 import 'services/device_service.dart';
 import 'services/gps_service.dart';
+import 'services/telemetry_logger.dart';
 import 'state_providers.dart';
 import 'utils/formatting.dart';
 
@@ -406,6 +407,17 @@ class AutoStartMonitor extends Notifier<AutoStartStatus> {
   /// Surface [ss] as the pending prompt (with a human [reason]).
   void _setPending(ScheduledStage ss, DateTime now, String reason,
       {double? fixAccuracy, double? distance}) {
+    ref.read(telemetryLoggerProvider).event(
+          type: 'autostart_prompt',
+          data: {
+            'stageId': ss.stage.id,
+            'stageName': ss.stage.name,
+            'reason': reason,
+            'fixAccuracyM': fixAccuracy,
+            'distanceM': distance,
+            'startTime': ss.stage.startTime?.toIso8601String(),
+          },
+        );
     try {
       state = AutoStartStatus(
         lastTick: now,
@@ -445,6 +457,10 @@ class AutoStartMonitor extends Notifier<AutoStartStatus> {
     // re-surface it.
     _snooze.remove(ss.stage.id);
     _clearPending();
+    ref.read(telemetryLoggerProvider).event(
+          type: 'autostart_confirm',
+          data: {'stageId': ss.stage.id},
+        );
     try {
       await device.disableWakelock();
       await stageController.startStageFromPlan(ss.stage);
@@ -460,8 +476,13 @@ class AutoStartMonitor extends Notifier<AutoStartStatus> {
   void dismissPending({Duration? snooze}) {
     final ss = state.pendingPrompt;
     if (ss == null) return;
-    _snooze[ss.stage.id] = now().add(snooze ?? _autoStartSnooze);
+    final snoozeUntil = now().add(snooze ?? _autoStartSnooze);
+    _snooze[ss.stage.id] = snoozeUntil;
     _clearPending();
+    ref.read(telemetryLoggerProvider).event(
+          type: 'autostart_decline',
+          data: {'stageId': ss.stage.id, 'snoozeUntil': snoozeUntil.toIso8601String()},
+        );
   }
 
   Future<void> _tick() async {

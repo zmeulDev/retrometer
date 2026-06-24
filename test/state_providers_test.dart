@@ -7,6 +7,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:retrometer/models.dart';
 import 'package:retrometer/services/device_service.dart';
 import 'package:retrometer/services/gps_service.dart';
+import 'package:retrometer/services/telemetry_logger.dart';
 import 'package:retrometer/state_providers.dart';
 
 /// Fake GPS service: emits positions pushed into [controller], and reports a
@@ -16,6 +17,12 @@ class _FakeGpsService implements GpsService {
 
   /// Metres reported for every consecutive position pair.
   static const double metresPerStep = 100;
+
+  /// Per-call distance overrides. Each `distanceBetween` call pops the first
+  /// entry; when empty it falls back to [metresPerStep]. Used to simulate a
+  /// genuine stop (distance 0) for a 0-speed fix without disturbing the default
+  /// movement distance of the other fixes.
+  final List<double> distanceOverrides = [];
 
   final StreamController<Position> controller =
       StreamController<Position>.broadcast();
@@ -53,7 +60,9 @@ class _FakeGpsService implements GpsService {
     required double endLatitude,
     required double endLongitude,
   }) =>
-      metresPerStep;
+      distanceOverrides.isNotEmpty
+          ? distanceOverrides.removeAt(0)
+          : metresPerStep;
 }
 
 /// Records wakelock/haptic calls without touching platform channels.
@@ -72,10 +81,71 @@ class _FakeDeviceService implements DeviceService {
   Future<void> haptic({int durationMs = 30}) async => hapticCalls++;
 }
 
-Position _pos({required double speed}) => Position(
+/// Captures every logger call as a record so tests can assert what was logged
+/// without touching disk. Mirrors the [TelemetryLogger] surface; stage events
+/// carry their [extra] map and generic events their [data] map.
+class _RecordingLogger implements TelemetryLogger {
+  final List<Map<String, Object?>> records = [];
+
+  @override
+  void fix({
+    required Position pos,
+    required double addedMetres,
+    required int dtMs,
+    required double? gpsSpeedKmh,
+    required double speedKmh,
+    required double distanceKm,
+    required double maxSpeedKmh,
+    required double? minSpeedKmh,
+    required bool baseline,
+    required StageStatus status,
+  }) {
+    records.add({
+      'type': 'fix',
+      'rawSpeedMps': pos.speed,
+      'gpsSpeedKmh': gpsSpeedKmh,
+      'speedKmh': speedKmh,
+      'addedM': addedMetres,
+      'dtMs': dtMs,
+      'distKm': distanceKm,
+      'maxKmh': maxSpeedKmh,
+      'minKmh': minSpeedKmh,
+      'baseline': baseline,
+      'status': status.name,
+    });
+  }
+
+  @override
+  void stageEvent({
+    required String type,
+    required StageConfig config,
+    StageTelemetry? telemetry,
+    Map<String, Object?> extra = const {},
+  }) {
+    records.add({
+      'type': type,
+      'stageId': config.id,
+      'telemetry': telemetry,
+      'extra': extra,
+    });
+  }
+
+  @override
+  void event({required String type, Map<String, Object?> data = const {}}) {
+    records.add({'type': type, 'data': data});
+  }
+
+  @override
+  Future<void> flush() async {}
+
+  @override
+  Future<void> close() async {}
+}
+
+Position _pos({required double speed, DateTime? at}) => Position(
       longitude: 0,
       latitude: 0,
-      timestamp: DateTime.now(),
+      timestamp: at ?? DateTime.now(),
       accuracy: 0,
       altitude: 0,
       altitudeAccuracy: 0,
@@ -88,15 +158,18 @@ Position _pos({required double speed}) => Position(
 void main() {
   late _FakeGpsService gps;
   late _FakeDeviceService device;
+  late _RecordingLogger logger;
   late ProviderContainer container;
 
   setUp(() {
     gps = _FakeGpsService();
     device = _FakeDeviceService();
+    logger = _RecordingLogger();
     container = ProviderContainer(
       overrides: [
         gpsServiceProvider.overrideWithValue(gps),
         deviceServiceProvider.overrideWithValue(device),
+        telemetryLoggerProvider.overrideWithValue(logger),
       ],
     );
   });
@@ -525,6 +598,14 @@ void main() {
     // On resume the provider watches clockTick again, so Δ advances from the
     // frozen value rather than staying stuck (and pauseOffset keeps it
     // jump-free — no sudden lurch).
+    //
+    // Prime the lazy clock stream first: while paused the inProgress branch
+    // (which watches clockTickProvider) isn't evaluated, so the stream isn't
+    // built until the first post-resume read. Without this priming read + pump
+    // the 1.2s wait would elapse before the stream even starts, leaving
+    // valueOrNull null and Δ stuck at 0.
+    container.read(deltaSecondsProvider);
+    await Future<void>.delayed(Duration.zero);
     await Future<void>.delayed(const Duration(seconds: 1, milliseconds: 200));
     expect(
       container.read(deltaSecondsProvider),
@@ -548,8 +629,10 @@ void main() {
     expect(t1.minSpeedKmh, closeTo(36, 1e-9));
 
     // A 0-speed fix must count toward the min — stops are legit readings, not
-    // filtered out.
-    gps.controller.add(_pos(speed: 0)); // 0 km/h
+    // filtered out. The fix is a genuine stop: distance 0 (so the new
+    // moving-threshold logic trusts the 0 rather than deriving a speed).
+    gps.distanceOverrides.add(0.0);
+    gps.controller.add(_pos(speed: 0)); // 0 km/h, stopped
     await Future<void>.delayed(Duration.zero);
 
     final t2 = container.read(stageControllerProvider).telemetry;
@@ -557,17 +640,45 @@ void main() {
     expect(t2.maxSpeedKmh, closeTo(72, 1e-9));
   });
 
+  test('speed is derived from distance/time when GPS reports 0 while moving',
+      () async {
+    // Reproduces the A059 behavior: FusedLocation returns position.speed == 0
+    // even while the device is moving. Pre-fix, max/min stayed at 0 for the
+    // whole stage; post-fix, the speed is derived from the distance between
+    // fixes once it crosses the moving threshold.
+    await readController().startStage();
+
+    final t0 = DateTime(2026, 6, 24, 12, 0, 0);
+    // First fix seeds `last` (no distance call); speed 0 → reads 0.
+    gps.controller.add(_pos(speed: 0, at: t0));
+    await Future<void>.delayed(Duration.zero);
+    // Second fix: moved 30 m in 1 s → 108 km/h. GPS reports 0 but we crossed
+    // the threshold, so the derived speed is used.
+    gps.distanceOverrides.add(30.0);
+    gps.controller.add(_pos(speed: 0, at: t0.add(const Duration(seconds: 1))));
+    await Future<void>.delayed(Duration.zero);
+
+    final t = container.read(stageControllerProvider).telemetry;
+    expect(t.maxSpeedKmh, closeTo(108, 1e-6));
+    expect(t.minSpeedKmh, closeTo(0, 1e-6));
+    expect(t.currentSpeed, closeTo(108, 1e-6));
+  });
+
   test('stopStage snapshots a StageResult with max/min/distance/completedAt',
       () async {
     await readController().startStage();
 
-    // First fix seeds `last` (0 distance); subsequent fixes each add 0.1 km
-    // (metresPerStep=100). Three fixes → 0.2 km total.
+    // First fix seeds `last` (0 distance); two moving fixes each add 0.1 km
+    // (metresPerStep=100) → 0.2 km total and a 72 km/h max; a final genuine
+    // stop (distance 0, speed 0) pins the min at 0.
     gps.controller.add(_pos(speed: 10)); // 36 km/h, +0 km
     await Future<void>.delayed(Duration.zero);
     gps.controller.add(_pos(speed: 20)); // 72 km/h, +0.1 km
     await Future<void>.delayed(Duration.zero);
-    gps.controller.add(_pos(speed: 0)); // 0 km/h, +0.1 km
+    gps.controller.add(_pos(speed: 20)); // 72 km/h, +0.1 km
+    await Future<void>.delayed(Duration.zero);
+    gps.distanceOverrides.add(0.0);
+    gps.controller.add(_pos(speed: 0)); // 0 km/h, stopped, +0 km
     await Future<void>.delayed(Duration.zero);
 
     readController().stopStage();
@@ -642,5 +753,55 @@ void main() {
     gps.controller.add(_pos(speed: 10));
     await Future<void>.delayed(const Duration(milliseconds: 50));
     expect(container.read(gpsFixStatusProvider), GpsFixStatus.fixed);
+  });
+
+  // --- telemetry logging -----------------------------------------------------
+
+  test('fix events are logged with the distance/time-derived speed (A059)',
+      () async {
+    // FusedLocation reports speed == 0 while moving (the A059 case); once the
+    // moving threshold is crossed the logger records the derived speed, and the
+    // raw GPS speed fields make that derivation visible in the log.
+    await readController().startStage();
+
+    final t0 = DateTime(2026, 6, 24, 12, 0, 0);
+    gps.controller.add(_pos(speed: 0, at: t0)); // baseline, seeds `last`
+    await Future<void>.delayed(Duration.zero);
+    gps.distanceOverrides.add(30.0);
+    gps.controller.add(_pos(speed: 0, at: t0.add(const Duration(seconds: 1))));
+    await Future<void>.delayed(Duration.zero);
+
+    final fixes = logger.records.where((r) => r['type'] == 'fix').toList();
+    expect(fixes.length, greaterThanOrEqualTo(2));
+    final moving = fixes.last;
+    expect(moving['rawSpeedMps'], 0.0); // GPS reported nothing
+    expect(moving['gpsSpeedKmh'], 0.0); // ... so the GPS speed is 0 too
+    expect((moving['speedKmh'] as num).toDouble(), closeTo(108, 1e-6));
+    expect((moving['addedM'] as num).toDouble(), closeTo(30, 1e-9));
+    expect(moving['dtMs'], 1000);
+    expect(moving['baseline'], isFalse);
+    // The baseline fix (first) is flagged so the analyzer can distinguish it.
+    expect(fixes.first['baseline'], isTrue);
+  });
+
+  test('stage lifecycle events are logged: start → pause → resume → stop',
+      () async {
+    await readController().startStage();
+    readController().pauseStage();
+    await readController().resumeStage();
+    readController().stopStage();
+
+    final types = logger.records
+        .where((r) => r['type'] is String && (r['type'] != 'fix'))
+        .map((r) => r['type'] as String)
+        .toList();
+    // The lifecycle is emitted in order; stop carries the finalized result.
+    expect(types, containsAllInOrder(['start', 'pause', 'resume', 'stop']));
+    final stop = logger.records.firstWhere((r) => r['type'] == 'stop');
+    final extra = stop['extra'] as Map<String, Object?>;
+    expect(extra['result'], isNotNull);
+    final result = extra['result'] as Map<String, Object?>;
+    expect(result.containsKey('maxSpeedKmh'), isTrue);
+    expect(result.containsKey('totalDistanceKm'), isTrue);
   });
 }
