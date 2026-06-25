@@ -8,6 +8,7 @@ import '../theme/retrometer_theme.dart';
 import '../utils/formatting.dart';
 import '../widgets/editor_sheet.dart';
 import '../widgets/form_fields.dart';
+import '../widgets/info_widgets.dart';
 import '../widgets/location_field.dart';
 
 /// Opens the stage editor as a full-screen page. On save, adds [existing]
@@ -419,6 +420,42 @@ class _StageEditorState extends State<StageEditor> {
       totalDistanceKm: _draft.totalDistanceKm,
       allocatedTimeSeconds: _draft.allocatedTimeSeconds,
     );
+    _confirmWarningsThenPop(draft);
+  }
+
+  /// Soft validation before commit. Surfaces implausible/mismatched configs
+  /// that caused false alarms on the A059 track test (a 45s `allocatedTimeSeconds`
+  /// fired the finish-time prompt in the first minute on a 16-min stage, and the
+  /// crew learned to dismiss it — which then silenced the real finish-location
+  /// prompt). Non-blocking: the crew can still save.
+  Future<void> _confirmWarningsThenPop(StageDraft draft) async {
+    final warnings = <String>[];
+    final alloc = draft.allocatedTimeSeconds;
+    // The field is MM:SS. A non-zero value under a minute is almost certainly a
+    // data-entry mistake (the crew meant minutes, not seconds).
+    if (alloc > 0 && alloc < 60) {
+      warnings.add('Timpul alocat e $alloc secunde (câmpul e minute:secunde). '
+          'Sub un minut e neobișnuit pentru un stagiu de regularity — verifică '
+          'dacă ai vrut $alloc minute.');
+    }
+    // Time-finish without a distance reference: the allocated time becomes the
+    // only finish signal and Δ has no ideal-time basis (the A059 cascade).
+    if (alloc > 0 && draft.totalDistanceKm == 0) {
+      warnings.add('Ai setat timp alocat, dar nu distanța totală — fără '
+          'distanță, timpul devine singurul semnal de finish și indicatorul Δ '
+          'nu are referință.');
+    }
+    if (warnings.isNotEmpty) {
+      final ok = await confirmDialog(
+        context,
+        title: 'Confirmă salvarea',
+        message: warnings.join('\n\n'),
+        confirmLabel: 'Salvează',
+        cancelLabel: 'Modifică',
+      );
+      if (!ok || !mounted) return;
+    }
+    if (!mounted) return;
     Navigator.of(context).pop(draft);
   }
 }

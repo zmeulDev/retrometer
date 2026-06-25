@@ -415,7 +415,7 @@ class AutoStartMonitor extends Notifier<AutoStartStatus> {
             'reason': reason,
             'fixAccuracyM': fixAccuracy,
             'distanceM': distance,
-            'startTime': ss.stage.startTime?.toIso8601String(),
+            'startTime': ss.stage.startTime?.toUtc().toIso8601String(),
           },
         );
     try {
@@ -481,7 +481,12 @@ class AutoStartMonitor extends Notifier<AutoStartStatus> {
     _clearPending();
     ref.read(telemetryLoggerProvider).event(
           type: 'autostart_decline',
-          data: {'stageId': ss.stage.id, 'snoozeUntil': snoozeUntil.toIso8601String()},
+          // `snoozeUntil` is a local DateTime in-memory; serialize as UTC so it
+          // matches the envelope `ts` (UTC) — otherwise it looks hours off.
+          data: {
+            'stageId': ss.stage.id,
+            'snoozeUntil': snoozeUntil.toUtc().toIso8601String(),
+          },
         );
   }
 

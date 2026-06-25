@@ -142,11 +142,12 @@ class _RecordingLogger implements TelemetryLogger {
   Future<void> close() async {}
 }
 
-Position _pos({required double speed, DateTime? at}) => Position(
+Position _pos({required double speed, DateTime? at, double accuracy = 0}) =>
+    Position(
       longitude: 0,
       latitude: 0,
       timestamp: at ?? DateTime.now(),
-      accuracy: 0,
+      accuracy: accuracy,
       altitude: 0,
       altitudeAccuracy: 0,
       heading: 0,
@@ -378,6 +379,56 @@ void main() {
     expect(
       container.read(stageControllerProvider).telemetry.status,
       StageStatus.completed,
+    );
+  });
+
+  test(
+      'time-finish dismiss does not suppress the location-finish prompt (per-reason guard)',
+      () async {
+    // Regression for the A059 stg7 case: a 45s allocatedTime finish fired and
+    // was dismissed, which tripped the shared once-per-stage guard and silenced
+    // the geofence arrival 16 min later. The guard is now per-reason, so a
+    // dismissed time prompt still lets the location prompt fire.
+    final plan = PlannedStage(
+      id: 's7',
+      name: 'stg7',
+      startTime: DateTime.now(),
+      latitude: 0,
+      longitude: 0,
+      endLatitude: 1.0,
+      endLongitude: 1.0,
+      endGeofenceRadiusM: 200,
+      autoStop: true,
+      allocatedTimeSeconds: 1,
+    );
+    await readController().startStageFromPlan(plan);
+    // Register the finish notifier early (elapsed 0) so its elapsed listener
+    // catches the 1 s allocation crossing.
+    container.read(stageFinishProvider);
+
+    // Wait for the time-finish prompt (1 Hz clock → ~1 s).
+    StageFinishReason? reason;
+    for (var i = 0; i < 30 && reason == null; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      reason = container.read(stageFinishProvider);
+    }
+    expect(reason, StageFinishReason.time);
+
+    // Crew dismisses the (false-alarm) time prompt.
+    container.read(stageFinishProvider.notifier).dismiss();
+    expect(container.read(stageFinishProvider), isNull);
+
+    // ...then actually arrives at the finish geofence. The location prompt
+    // must still fire (this is the bug — it used to stay null).
+    gps.controller.add(_pos(speed: 10)); // seeds `last`
+    await Future<void>.delayed(Duration.zero);
+    gps.controller.add(_pos(speed: 20)); // distanceBetween → 100 m ≤ 200 m
+    await Future<void>.delayed(Duration.zero);
+
+    expect(container.read(stageFinishProvider), StageFinishReason.location);
+    expect(
+      container.read(stageControllerProvider).telemetry.status,
+      StageStatus.inProgress,
     );
   });
 
@@ -662,6 +713,68 @@ void main() {
     expect(t.maxSpeedKmh, closeTo(108, 1e-6));
     expect(t.minSpeedKmh, closeTo(0, 1e-6));
     expect(t.currentSpeed, closeTo(108, 1e-6));
+  });
+
+  test(
+      'poor-accuracy fix does not inflate maxSpeedKmh (A059 jitter regression)',
+      () async {
+    // Reproduces the A059 jitter: a good fix establishes a real speed, then a
+    // 600m-accuracy fix teleports 1km in 6s — pre-fix that derived 600 km/h
+    // and polluted maxSpeedKmh (the log showed 567 km/h persisted to SQLite).
+    // The accuracy gate holds the previous speed; distance still accumulates.
+    await readController().startStage();
+
+    final t0 = DateTime(2026, 6, 24, 12, 0, 0);
+    // First fix seeds `last` (speed 0 → reads 0).
+    gps.controller.add(_pos(speed: 0, at: t0, accuracy: 10));
+    await Future<void>.delayed(Duration.zero);
+    // Second fix: 30 m in 1 s → 108 km/h, good accuracy → derived & kept.
+    gps.distanceOverrides.add(30.0);
+    gps.controller
+        .add(_pos(speed: 0, at: t0.add(const Duration(seconds: 1)), accuracy: 10));
+    await Future<void>.delayed(Duration.zero);
+    expect(
+      container.read(stageControllerProvider).telemetry.maxSpeedKmh,
+      closeTo(108, 1e-6),
+    );
+
+    // Third fix: 1000 m in 6 s → would derive ~600 km/h, but accuracy 600m
+    // exceeds the gate → speed held at 108, maxSpeedKmh unchanged.
+    gps.distanceOverrides.add(1000.0);
+    gps.controller.add(
+        _pos(speed: 0, at: t0.add(const Duration(seconds: 7)), accuracy: 600));
+    await Future<void>.delayed(Duration.zero);
+
+    final t = container.read(stageControllerProvider).telemetry;
+    expect(t.maxSpeedKmh, closeTo(108, 1e-6));
+    expect(t.currentSpeed, closeTo(108, 1e-6));
+    // Distance still accumulates (A1 doesn't under-count the stage).
+    expect(t.currentDistance, closeTo(1.03, 1e-9));
+    // The rejected fix is logged for diagnostic analysis.
+    expect(
+      logger.records.where((r) => r['type'] == 'fix_speed_held'),
+      isNotEmpty,
+    );
+  });
+
+  test('derived speed is clamped to the backstop ceiling', () async {
+    // A fix with good-enough accuracy (passes the gate) but an extreme
+    // distance/time ratio still can't exceed the backstop clamp.
+    await readController().startStage();
+
+    final t0 = DateTime(2026, 6, 24, 12, 0, 0);
+    gps.controller.add(_pos(speed: 0, at: t0, accuracy: 20));
+    await Future<void>.delayed(Duration.zero);
+    // 120 m in 1 s → 432 km/h derived; accuracy 20m passes the gate, so the
+    // backstop clamp is what caps it at 200.
+    gps.distanceOverrides.add(120.0);
+    gps.controller
+        .add(_pos(speed: 0, at: t0.add(const Duration(seconds: 1)), accuracy: 20));
+    await Future<void>.delayed(Duration.zero);
+
+    final t = container.read(stageControllerProvider).telemetry;
+    expect(t.currentSpeed, closeTo(200, 1e-6));
+    expect(t.maxSpeedKmh, closeTo(200, 1e-6));
   });
 
   test('stopStage snapshots a StageResult with max/min/distance/completedAt',

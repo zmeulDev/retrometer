@@ -217,6 +217,13 @@ class FileTelemetryLogger implements TelemetryLogger {
 
   Map<String, Object?> _telemetryJson(StageTelemetry t) => {
         'status': t.status.name,
+        // NOTE: these stay as in-memory (local) ISO strings, on purpose. The
+        // `stop`/`start` lifecycle records also carry `result.completedAt` /
+        // history `startedAt`/`completedAt` (via model `toJson`, also local), so
+        // keeping `startTime`/`pausedSince` local keeps each lifecycle record
+        // internally consistent. The envelope `ts` is UTC; standalone event-data
+        // fields that are compared directly with `ts` (snoozeUntil, prompt
+        // startTime) are serialized as UTC to match — see competition_providers.
         'startTime': t.startTime?.toIso8601String(),
         'distKm': t.currentDistance,
         'speedKmh': t.currentSpeed,

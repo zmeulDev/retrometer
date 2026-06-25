@@ -19,6 +19,20 @@ import 'services/telemetry_logger.dart';
 /// treated as a real stop (and absorbs ordinary GPS jitter at a standstill).
 const double _kMovingThresholdMetres = 5.0;
 
+/// Fixes with accuracy worse than this (metres) are not trusted to update the
+/// distance/time-derived speed. A poor-accuracy fix can teleport hundreds of
+/// metres in one interval and yield an impossible speed (observed 567 km/h on
+/// the A059 with accuracy 600m). Distance still accumulates — we don't
+/// under-count the stage — only the speed reading is held at its previous
+/// value. `accuracy == 0` (test sentinel / perfect fix) always passes.
+const double _kPoorAccuracyMetres = 50.0;
+
+/// Hard ceiling for the distance/time-derived speed (km/h). Backstop for any
+/// jitter that slips past the accuracy gate; a real regularity stage won't
+/// approach this. GPS-reported speeds (`position.speed > 0`) are trusted
+/// as-is and are NOT clamped.
+const double _kMaxDerivedSpeedKmh = 200.0;
+
 /// Owns the single active stage: its [StageConfig] and live [StageTelemetry].
 ///
 /// Drives a high-accuracy GPS position stream while in progress, accumulating
@@ -210,13 +224,31 @@ class StageController extends Notifier<RallyState> {
         final derivedKmh = dtMs > 0
             ? (addedMetres / 1000.0) / (dtMs / 3600000.0)
             : telemetry.currentSpeed;
-        // GPS says 0 (or is unavailable) but we moved past the jitter threshold
-        // — the reading is unreliable, use the distance/time-derived speed.
-        // Below the threshold we trust "stopped" (real stops and GPS jitter
-        // both read 0 here, preserving "min includes 0").
-        speedKmh = addedMetres > _kMovingThresholdMetres
-            ? derivedKmh
-            : (gpsSpeedKmh ?? 0.0);
+        if (addedMetres <= _kMovingThresholdMetres) {
+          // Below the jitter threshold — trust "stopped" (real stops and GPS
+          // jitter at a standstill both read 0 here, preserving "min includes
+          // 0").
+          speedKmh = gpsSpeedKmh ?? 0.0;
+        } else {
+          // Moved past the threshold but GPS speed is 0/unavailable — derive.
+          // Gate by accuracy: a poor fix can teleport hundreds of metres and
+          // yield an impossible speed. Hold the previous reading instead of
+          // recording junk; distance still accumulates above.
+          final accuracyGood =
+              pos.accuracy <= 0 || pos.accuracy <= _kPoorAccuracyMetres;
+          if (!accuracyGood) {
+            logger.event(type: 'fix_speed_held', data: {
+              'accuracy': pos.accuracy,
+              'addedM': addedMetres,
+              'derivedKmh': derivedKmh,
+            });
+            speedKmh = telemetry.currentSpeed;
+          } else {
+            // Backstop clamp regardless — catches borderline-accuracy
+            // outliers that pass the gate but still over-derive.
+            speedKmh = math.min(derivedKmh, _kMaxDerivedSpeedKmh);
+          }
+        }
       } else {
         speedKmh = 0.0;
       }
@@ -369,8 +401,11 @@ enum StageFinishReason { time, location }
 /// Surfaces a "ați ajuns la finalul stagiului — opriți?" confirmation instead
 /// of silently auto-stopping. Holds the pending finish reason (`time` when the
 /// elapsed reaches `allocatedTimeSeconds`, `location` when the device enters
-/// the finish geofence) and a once-per-stage guard so the prompt can't
-/// reappear at every GPS fix after a dismiss.
+/// the finish geofence) and a **per-reason** guard so each reason can prompt at
+/// most once per stage — dismissing a *time* prompt must not suppress the
+/// *location* prompt when the crew actually arrives at the finish (observed on
+/// A059: a 45s `allocatedTimeSeconds` false alarm, dismissed, silenced the
+/// geofence arrival 16 min later).
 ///
 /// The location signal arrives imperatively from [StageController._subscribeGps]
 /// via [requestLocationFinish]; the time signal is derived here by *listening*
@@ -379,18 +414,21 @@ enum StageFinishReason { time, location }
 /// would otherwise be clobbered by the rebuild. State is `null` when no prompt
 /// is pending.
 class StageFinishNotifier extends Notifier<StageFinishReason?> {
-  bool _promptedThisStage = false;
+  /// Reasons already prompted this stage. Each reason trips independently, so
+  /// a dismissed time prompt still lets the location prompt fire (and vice
+  /// versa). Cleared when the stage ends (idle/completed).
+  final Set<StageFinishReason> _promptedReasons = {};
 
   @override
   StageFinishReason? build() {
     final status = ref.watch(
       stageControllerProvider.select((s) => s.telemetry.status),
     );
-    // Re-arm the once-per-stage guard when the stage is no longer running —
-    // idle (reset) or completed (stopped) — so the next stage gets a fresh
-    // prompt. `paused` keeps the guard (a pause isn't a new stage).
+    // Re-arm the per-reason guards when the stage is no longer running —
+    // idle (reset) or completed (stopped) — so the next stage gets fresh
+    // prompts. `paused` keeps the guards (a pause isn't a new stage).
     if (status == StageStatus.idle || status == StageStatus.completed) {
-      _promptedThisStage = false;
+      _promptedReasons.clear();
     }
     // Listen (not watch): the elapsed tick drives the time check without
     // rebuilding this notifier (which would reset state to null and clobber an
@@ -402,7 +440,7 @@ class StageFinishNotifier extends Notifier<StageFinishReason?> {
   }
 
   void _maybeTimeFinish(int elapsed) {
-    if (_promptedThisStage) return;
+    if (_promptedReasons.contains(StageFinishReason.time)) return;
     final s = ref.read(stageControllerProvider);
     if (s.telemetry.status != StageStatus.inProgress) return;
     final allocated = s.config.allocatedTimeSeconds;
@@ -416,16 +454,16 @@ class StageFinishNotifier extends Notifier<StageFinishReason?> {
   }
 
   /// Location-finish signal from [StageController._subscribeGps]: the device
-  /// entered the finish geofence. Idempotent per stage (no-op if already
-  /// prompted).
+  /// entered the finish geofence. Idempotent per reason (no-op if a location
+  /// prompt was already raised or dismissed this stage).
   void requestLocationFinish() {
-    if (_promptedThisStage) return;
+    if (_promptedReasons.contains(StageFinishReason.location)) return;
     ref.read(telemetryLoggerProvider).event(type: 'finish_location');
     _setPending(StageFinishReason.location);
   }
 
   void _setPending(StageFinishReason reason) {
-    _promptedThisStage = true;
+    _promptedReasons.add(reason);
     try {
       state = reason;
     } on StateError {
