@@ -23,8 +23,14 @@ import 'cockpit_config_sheet.dart';
 ///   up so they read clearly at a glance.
 ///
 /// Wrapped in a [RepaintBoundary] so frequent state changes don't repaint the
-/// rest of the screen. On very narrow screens (<360 px) the footer controls
-/// collapse to icon-only so the row fits.
+/// rest of the screen.
+///
+/// The footer controls collapse to icon-only (`compact`) when there isn't
+/// room for the labelled buttons: on narrow screens (<360 px **at the current
+/// text scale**), on short top-bar zones (phone landscape, large system
+/// insets), or at large accessibility text scales where the labels would
+/// overflow the row. When the zone is short the card also tightens its
+/// padding/gaps (`tight`) so the header/footer/body always fit.
 class CockpitTopBar extends ConsumerWidget {
   const CockpitTopBar({super.key});
 
@@ -46,11 +52,25 @@ class CockpitTopBar extends ConsumerWidget {
     return RepaintBoundary(
       child: LayoutBuilder(
         builder: (context, c) {
-          // Very narrow windows (phone split-view) drop the control labels so
-          // the footer row fits; everywhere else the buttons show full labels.
-          final compact = c.maxWidth < 360;
+          // Drop the control labels (icon-only `compact`) whenever the labelled
+          // row would not fit: on narrow windows, on short top-bar zones (phone
+          // landscape / large system insets), or once accessibility text scale
+          // outgrows a phone-width window. The high-text-scale guard fires only
+          // above 1.4× AND below 480 px wide — it leaves the 448 px device at its
+          // real 1.15 and the 400 px integration window at 1.15 with full labels
+          // (START stays findable), while keeping a phone-width bar at 1.5–2×
+          // text from overflowing the labels off the right edge (a 448 px bar
+          // overflows by ~3 px at 1.5×). Wider windows keep labels at any scale.
+          final textScale = MediaQuery.textScalerOf(context).scale(1.0);
+          final compact = c.maxWidth < 360 ||
+              c.maxHeight < _kCompactHeight ||
+              (textScale > 1.4 && c.maxWidth < 480);
+          // A short zone also gets tighter card padding/gaps so the fixed
+          // header + footer + body always fit (phone landscape, big insets).
+          final tight = c.maxHeight < _kTightHeight;
 
           return _topBarCard(
+            tight: tight,
             header: Row(
               children: [
                 Expanded(child: _CompetitionLabel(competition: competition)),
@@ -229,24 +249,40 @@ class ControlButton extends StatelessWidget {
 // Private pieces.
 // ---------------------------------------------------------------------------
 
+/// Top-bar zone height (after subtracting the LED strip) below which the
+/// labelled control buttons wouldn't fit and we drop to icon-only + tighten
+/// the card padding. Phone landscape and big system insets land here.
+const double _kTightHeight = 160;
+/// Zone height below which the footer must be icon-only even if labelled
+/// buttons would otherwise fit vertically (the row gets too short to read).
+const double _kCompactHeight = 140;
+
 /// The rounded surface card: header on top, body centered in the remaining
-/// space, footer at the bottom.
+/// space, footer at the bottom. When [tight] (short zone), the outer/card
+/// padding and the inter-section gaps shrink so the fixed header + footer +
+/// body always fit without overflow.
 Widget _topBarCard({
   required Widget header,
   required Widget body,
   required Widget footer,
+  bool tight = false,
 }) {
+  final gap = tight ? 4.0 : 8.0;
   return Padding(
-    padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
+    padding: tight
+        ? const EdgeInsets.fromLTRB(4, 4, 4, 2)
+        : const EdgeInsets.fromLTRB(8, 8, 8, 4),
     child: SurfaceCard(
       radius: RetrometerRadii.card,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: tight
+          ? const EdgeInsets.symmetric(horizontal: 12, vertical: 6)
+          : const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Column(
         children: [
           header,
-          const SizedBox(height: 8),
+          SizedBox(height: gap),
           Expanded(child: Center(child: body)),
-          const SizedBox(height: 8),
+          SizedBox(height: gap),
           footer,
         ],
       ),

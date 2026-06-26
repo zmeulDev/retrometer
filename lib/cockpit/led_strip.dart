@@ -114,6 +114,12 @@ class _Led extends StatelessWidget {
         const SizedBox(width: 5),
         Text(
           label,
+          // The strip is a fixed 22 px decorative status bar; the four stencil
+          // labels would otherwise grow with the device text scale and overflow
+          // horizontally (e.g. 1.5×–2× accessibility). Pin them to 1.0 so the
+          // strip never overflows — the cockpit's primary readouts (Δ, speeds,
+          // distance) still scale via ShrinkToFit.
+          textScaler: TextScaler.linear(1.0),
           style: TextStyle(
             fontFamily: 'SairaStencil',
             fontSize: 9,

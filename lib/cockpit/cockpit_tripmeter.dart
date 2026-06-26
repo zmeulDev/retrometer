@@ -203,6 +203,11 @@ class _LabelPlate extends StatelessWidget {
       ),
       child: Text(
         text,
+        // Unit/caption labels (km, adjust amounts) are chrome — pin them to
+        // 1.0 so they don't grow with the device text scale and overflow the
+        // trip readout card (e.g. at 2× accessibility in landscape). The number
+        // itself still scales via its own ShrinkToFit.
+        textScaler: TextScaler.linear(1.0),
         style: style.copyWith(
           color: colors.labelInk,
           letterSpacing: 1.4,

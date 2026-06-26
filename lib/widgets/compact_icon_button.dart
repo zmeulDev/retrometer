@@ -27,11 +27,20 @@ class CompactIconButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final touch = compact ? 30.0 : expandedTouchSize;
+    // `constraints` alone is only a floor — the Material 3 default
+    // `MaterialTapTargetSize.padded` still inflates the button to 48×48,
+    // defeating compact mode (and eating the cockpit's short landscape zone).
+    // Pin the exact tap size via the style + shrinkWrap so the button really
+    // is `touch`×`touch`.
     return IconButton(
       icon: Icon(icon, color: color, size: compact ? 18 : expandedIconSize),
       tooltip: tooltip,
-      constraints: BoxConstraints(minHeight: touch, minWidth: touch),
-      padding: EdgeInsets.zero,
+      style: IconButton.styleFrom(
+        minimumSize: Size(touch, touch),
+        maximumSize: Size(touch, touch),
+        padding: EdgeInsets.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
       onPressed: onPressed,
     );
   }
