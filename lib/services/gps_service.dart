@@ -3,22 +3,23 @@ import 'dart:io' show Platform;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
-/// Force raw GPS via Android's `LocationManager` instead of the
-/// FusedLocationProvider. FusedLocation on some devices (observed on the A059
-/// Xiaomi mid-range) reports `position.speed == 0` while moving, accuracy up to
-/// 600m, and throttles the fix rate to ~12s regardless of `intervalDuration`.
-/// Raw GPS typically populates `speed` (Doppler-derived) and gives a steady
-/// ~1s interval under open sky (a rally is open sky).
+/// Whether to force Android's raw `LocationManager` over the
+/// `FusedLocationProvider`.
 ///
-/// **Enabled for the Pixel 9 Pro XL track test.** Verified necessary on the
-/// A059 (FusedLocation ignored `intervalDuration: 1s`, cadence stayed ~12s,
-/// `rawSpeedMps > 0` on only 1/15 fixes). The Pixel has dual-frequency L1+L5
-/// GNSS; raw GPS should give 1Hz + real speed + ~3–5m accuracy. If raw
-/// `LocationManager` proves unreliable on a given Android build, flip back to
-/// `false` (FusedLocation) — the derived-speed + accuracy-gate paths in
-/// `state_providers.dart` remain as fallback. Check the telemetry log after a
-/// run: `rawSpeedMps > 0` on good-accuracy fixes + steady ~1s `dtMs`.
-const bool kForceAndroidLocationManager = true;
+/// `false` (the default) uses FusedLocationProvider - the same source Google
+/// Maps / Waze rely on, which **populates `position.speed`** (the chipset's
+/// Doppler/fused velocity) and delivers ~1 Hz fixes. The speed reading in
+/// `state_providers.dart` trusts `position.speed` as its primary source, so a
+/// provider that returns `speed == 0` makes the displayed speed wrong.
+///
+/// An earlier build set this to `true` to work around a weak FusedLocation on
+/// the Xiaomi A059 (0 speed, ~12 s cadence). Verified on the Pixel 9 Pro XL:
+/// raw `LocationManager` (true) returns `speed == 0` on **every** fix and
+/// ~13 s cadence - so the raw-LM path is what broke speed here. Other apps on
+/// the same Pixel display real speed -> FusedLocation populates it; flip to
+/// `false`. Verify with the telemetry log after a run: `rawSpeedMps > 0` on
+/// most fixes + steady ~1 s `dtMs`.
+const bool kForceAndroidLocationManager = false;
 
 /// Thin, injectable wrapper around `geolocator`.
 ///
@@ -38,15 +39,18 @@ abstract class GpsService {
   /// Position stream. Defaults to high accuracy with `distanceFilter: 0`
   /// (every fix) so the stage controller can accumulate distance itself. The
   /// always-on locality feed passes a lower accuracy + a distance filter to
-  /// save battery — it only needs ~1 km resolution.
+  /// save battery - it only needs ~1 km resolution. Set [bestForNavigation]
+  /// for the stage stream: navigation-grade accuracy (what map apps use),
+  /// fastest fixes + a populated `position.speed`.
   Stream<Position> positionStream({
     LocationAccuracy accuracy = LocationAccuracy.high,
     int distanceFilter = 0,
+    bool bestForNavigation = false,
   });
 
   /// The last known position stored on the device, or `null` if none. This is
   /// instant (no cold-start) and is good enough for a hundreds-of-metres
-  /// geofence check — the auto-start monitor uses it as its fast path.
+  /// geofence check - the auto-start monitor uses it as its fast path.
   Future<Position?> getLastKnownPosition();
 
   /// A fresh one-shot position. Throws `TimeoutException` if no fix arrives
@@ -82,14 +86,16 @@ class GeolocatorGpsService implements GpsService {
   Stream<Position> positionStream({
     LocationAccuracy accuracy = LocationAccuracy.high,
     int distanceFilter = 0,
+    bool bestForNavigation = false,
   }) =>
       Geolocator.getPositionStream(
         locationSettings: _locationSettings(
-          accuracy: accuracy,
+          accuracy:
+              bestForNavigation ? LocationAccuracy.bestForNavigation : accuracy,
           distanceFilter: distanceFilter,
-          // On Android, request a steady 1 Hz fix rate so the derived speed
-          // (distance/time) isn't amplified by large, irregular dt — and the
-          // odometer accumulates smoothly. Ignored on other platforms.
+          // On Android, request a steady 1 Hz fix rate so the speed (and the
+          // odometer, integrated from `position.speed`) update in real time.
+          // Ignored on other platforms.
           intervalDuration: const Duration(seconds: 1),
         ),
       );

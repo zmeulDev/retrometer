@@ -75,6 +75,7 @@ class _FakeGpsService implements GpsService {
   Stream<Position> positionStream({
     LocationAccuracy accuracy = LocationAccuracy.high,
     int distanceFilter = 0,
+    bool bestForNavigation = false,
   }) =>
       controller.stream;
 
@@ -154,10 +155,10 @@ Position _fix() => Position(
 
 /// Like [_fix] but with a non-zero speed (m/s). Used by the speed-telemetry
 /// tests to feed fixes that carry instantaneous speed.
-Position _fixWithSpeed(double mps) => Position(
+Position _fixWithSpeed(double mps, {DateTime? at}) => Position(
       longitude: 24.0,
       latitude: 45.0,
-      timestamp: DateTime.now(),
+      timestamp: at ?? DateTime.now(),
       accuracy: 0,
       altitude: 0,
       altitudeAccuracy: 0,
@@ -839,11 +840,14 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 5));
     }
 
-    // Feed fixes with speeds 10/20/15 m/s (36/72/54 km/h). First fix seeds
-    // `last` (0 distance); subsequent two each add 0.1 km → 0.2 km total.
-    // max=72, min=36.
-    for (final mps in [10.0, 20.0, 15.0]) {
-      gps.controller.add(_fixWithSpeed(mps));
+    // Feed fixes 1 s apart with speeds 10/20/15 m/s (36/72/54 km/h). The first
+    // fix seeds `last` (0 distance); the next two integrate to 0.02 + 0.015 =
+    // 0.035 km. The 36→72 km/h step is exactly at the 36 km/h/s spike cap (not
+    // greater), so it's accepted → max=72, min=36.
+    final t0 = DateTime(2026, 6, 24, 12, 0, 0);
+    final speeds = [10.0, 20.0, 15.0];
+    for (var i = 0; i < speeds.length; i++) {
+      gps.controller.add(_fixWithSpeed(speeds[i], at: t0.add(Duration(seconds: i))));
       await Future<void>.delayed(Duration.zero);
     }
 
@@ -871,7 +875,7 @@ void main() {
     expect(result, isNotNull);
     expect(result!.maxSpeedKmh, closeTo(72, 1e-9));
     expect(result.minSpeedKmh, closeTo(36, 1e-9));
-    expect(result.totalDistanceKm, closeTo(0.2, 1e-9));
+    expect(result.totalDistanceKm, closeTo(0.035, 1e-9));
     // avg is wall-clock dependent; _buildResult returns 0.0 when elapsed is 0,
     // so `>= 0` is always safe.
     expect(result.avgSpeedKmh, greaterThanOrEqualTo(0.0));
@@ -953,11 +957,13 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 5));
     }
 
-    // Feed fixes with speeds 10/20/15 m/s (36/72/54 km/h). First fix seeds
-    // `last` (0 distance); subsequent two each add 0.1 km → 0.2 km total.
-    // max=72, min=36.
-    for (final mps in [10.0, 20.0, 15.0]) {
-      gps.controller.add(_fixWithSpeed(mps));
+    // Feed fixes 1 s apart with speeds 10/20/15 m/s (36/72/54 km/h). The first
+    // fix seeds `last` (0 distance); the next two integrate to 0.035 km. The
+    // 36→72 km/h step is at the spike cap (accepted) → max=72, min=36.
+    final t0 = DateTime(2026, 6, 24, 12, 0, 0);
+    final speeds = [10.0, 20.0, 15.0];
+    for (var i = 0; i < speeds.length; i++) {
+      gps.controller.add(_fixWithSpeed(speeds[i], at: t0.add(Duration(seconds: i))));
       await Future<void>.delayed(Duration.zero);
     }
 
@@ -1029,7 +1035,7 @@ void main() {
       expect(h.maxSpeedKmh, closeTo(72, 1e-9));
       expect(h.minSpeedKmh, closeTo(36, 1e-9));
       expect(h.avgSpeedKmh, result.avgSpeedKmh);
-      expect(h.totalDistanceKm, closeTo(0.2, 1e-9));
+      expect(h.totalDistanceKm, closeTo(0.035, 1e-9));
       expect(h.elapsedSeconds, result.elapsedSeconds);
       expect(h.startedAt, isNotNull);
       expect(h.completedAt, isNotNull);

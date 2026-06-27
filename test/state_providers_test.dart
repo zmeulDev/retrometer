@@ -42,6 +42,7 @@ class _FakeGpsService implements GpsService {
   Stream<Position> positionStream({
     LocationAccuracy accuracy = LocationAccuracy.high,
     int distanceFilter = 0,
+    bool bestForNavigation = false,
   }) =>
       controller.stream;
 
@@ -195,15 +196,20 @@ void main() {
   test('GPS positions accumulate distance (km) and speed (km/h)', () async {
     await readController().startStage();
 
-    // First fix seeds `last`; no distance added yet.
-    gps.controller.add(_pos(speed: 10)); // 10 m/s → 36 km/h
+    // Fixes are 1 s apart (the clamp + spike-rejector need a real interval;
+    // same-instant timestamps would clamp dt to 200 ms and over-reject).
+    final t0 = DateTime(2026, 6, 24, 12, 0, 0);
+    // First fix seeds `last` (baseline): speed 10 m/s → 36 km/h, 0 km added.
+    gps.controller.add(_pos(speed: 10, at: t0));
     await Future<void>.delayed(Duration.zero);
-    // Second fix: distanceBetween returns 100 m → +0.1 km.
-    gps.controller.add(_pos(speed: 20)); // 20 m/s → 72 km/h
+    // Second fix: 20 m/s (72 km/h) over 1 s → odometer += 20 m = 0.02 km
+    // (integrated from position.speed, not haversine). The 36→72 jump in 1 s
+    // is exactly the spike threshold (36 km/h/s) so it is accepted, not held.
+    gps.controller.add(_pos(speed: 20, at: t0.add(const Duration(seconds: 1))));
     await Future<void>.delayed(Duration.zero);
 
     final telemetry = container.read(stageControllerProvider).telemetry;
-    expect(telemetry.currentDistance, closeTo(0.1, 1e-9));
+    expect(telemetry.currentDistance, closeTo(0.02, 1e-9));
     expect(telemetry.currentSpeed, closeTo(72, 1e-9));
   });
 
@@ -285,10 +291,11 @@ void main() {
     // Keep the finish notifier alive so its state is observable.
     container.read(stageFinishProvider);
     // First fix seeds `last`; the finish check needs a previous fix.
-    gps.controller.add(_pos(speed: 10));
+    final t0 = DateTime(2026, 6, 24, 12, 0, 0);
+    gps.controller.add(_pos(speed: 10, at: t0));
     await Future<void>.delayed(Duration.zero);
     // Second fix: distanceBetween → 100 m ≤ 200 m radius → finish prompt.
-    gps.controller.add(_pos(speed: 20));
+    gps.controller.add(_pos(speed: 20, at: t0.add(const Duration(seconds: 1))));
     await Future<void>.delayed(Duration.zero);
 
     // The stage is NOT silently stopped — a finish prompt is pending instead.
@@ -314,9 +321,10 @@ void main() {
     );
     await readController().startStageFromPlan(plan);
     container.read(stageFinishProvider);
-    gps.controller.add(_pos(speed: 10));
+    final t0 = DateTime(2026, 6, 24, 12, 0, 0);
+    gps.controller.add(_pos(speed: 10, at: t0));
     await Future<void>.delayed(Duration.zero);
-    gps.controller.add(_pos(speed: 20));
+    gps.controller.add(_pos(speed: 20, at: t0.add(const Duration(seconds: 1))));
     await Future<void>.delayed(Duration.zero);
 
     // No finish prompt, stage still running.
@@ -368,9 +376,10 @@ void main() {
     );
     await readController().startStageFromPlan(plan);
     container.read(stageFinishProvider);
-    gps.controller.add(_pos(speed: 10));
+    final t0 = DateTime(2026, 6, 24, 12, 0, 0);
+    gps.controller.add(_pos(speed: 10, at: t0));
     await Future<void>.delayed(Duration.zero);
-    gps.controller.add(_pos(speed: 20));
+    gps.controller.add(_pos(speed: 20, at: t0.add(const Duration(seconds: 1))));
     await Future<void>.delayed(Duration.zero);
     expect(container.read(stageFinishProvider), StageFinishReason.location);
 
@@ -420,9 +429,11 @@ void main() {
 
     // ...then actually arrives at the finish geofence. The location prompt
     // must still fire (this is the bug — it used to stay null).
-    gps.controller.add(_pos(speed: 10)); // seeds `last`
+    final t0 = DateTime(2026, 6, 24, 12, 0, 0);
+    gps.controller.add(_pos(speed: 10, at: t0)); // seeds `last`
     await Future<void>.delayed(Duration.zero);
-    gps.controller.add(_pos(speed: 20)); // distanceBetween → 100 m ≤ 200 m
+    gps.controller.add(
+        _pos(speed: 20, at: t0.add(const Duration(seconds: 1)))); // 100 m ≤ 200 m
     await Future<void>.delayed(Duration.zero);
 
     expect(container.read(stageFinishProvider), StageFinishReason.location);
@@ -470,13 +481,15 @@ void main() {
 
   test('pauseStage freezes distance: fixes during pause are ignored', () async {
     await readController().startStage();
-    gps.controller.add(_pos(speed: 10)); // seeds `last`
+    final t0 = DateTime(2026, 6, 24, 12, 0, 0);
+    gps.controller.add(_pos(speed: 10, at: t0)); // seeds `last`, 0 km
     await Future<void>.delayed(Duration.zero);
-    gps.controller.add(_pos(speed: 20)); // +0.1 km
+    // 20 m/s over 1 s → odometer += 0.02 km (integrated from position.speed).
+    gps.controller.add(_pos(speed: 20, at: t0.add(const Duration(seconds: 1))));
     await Future<void>.delayed(Duration.zero);
     final before =
         container.read(stageControllerProvider).telemetry.currentDistance;
-    expect(before, closeTo(0.1, 1e-9));
+    expect(before, closeTo(0.02, 1e-9));
 
     readController().pauseStage();
     final t = container.read(stageControllerProvider).telemetry;
@@ -491,7 +504,7 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     expect(
       container.read(stageControllerProvider).telemetry.currentDistance,
-      closeTo(0.1, 1e-9),
+      closeTo(0.02, 1e-9),
     );
   });
 
@@ -507,15 +520,16 @@ void main() {
     // Wakelock re-armed on resume.
     expect(device.enableCalls, 2);
 
-    // First post-resume fix re-seeds `last` (0 m), second adds 0.1 km — no
+    // First post-resume fix re-seeds `last` (0 km), second adds 0.02 km — no
     // jump from a stale pre-pause fix.
-    gps.controller.add(_pos(speed: 10));
+    final t0 = DateTime(2026, 6, 24, 12, 0, 0);
+    gps.controller.add(_pos(speed: 10, at: t0));
     await Future<void>.delayed(Duration.zero);
-    gps.controller.add(_pos(speed: 20));
+    gps.controller.add(_pos(speed: 20, at: t0.add(const Duration(seconds: 1))));
     await Future<void>.delayed(Duration.zero);
     expect(
       container.read(stageControllerProvider).telemetry.currentDistance,
-      closeTo(0.1, 1e-9),
+      closeTo(0.02, 1e-9),
     );
   });
 
@@ -564,9 +578,10 @@ void main() {
     ));
     await readController().startStage();
     // Seed distance so t_ideal is non-zero and Δ is meaningful.
-    gps.controller.add(_pos(speed: 10));
+    final t0 = DateTime(2026, 6, 24, 12, 0, 0);
+    gps.controller.add(_pos(speed: 10, at: t0));
     await Future<void>.delayed(Duration.zero);
-    gps.controller.add(_pos(speed: 20));
+    gps.controller.add(_pos(speed: 20, at: t0.add(const Duration(seconds: 1))));
     await Future<void>.delayed(Duration.zero);
 
     readController().pauseStage();
@@ -670,9 +685,11 @@ void main() {
       () async {
     await readController().startStage();
 
-    gps.controller.add(_pos(speed: 10)); // 10 m/s → 36 km/h
+    final t0 = DateTime(2026, 6, 24, 12, 0, 0);
+    gps.controller.add(_pos(speed: 10, at: t0)); // 10 m/s → 36 km/h
     await Future<void>.delayed(Duration.zero);
-    gps.controller.add(_pos(speed: 20)); // 20 m/s → 72 km/h
+    gps.controller.add(
+        _pos(speed: 20, at: t0.add(const Duration(seconds: 1)))); // → 72 km/h
     await Future<void>.delayed(Duration.zero);
 
     final t1 = container.read(stageControllerProvider).telemetry;
@@ -680,10 +697,10 @@ void main() {
     expect(t1.minSpeedKmh, closeTo(36, 1e-9));
 
     // A 0-speed fix must count toward the min — stops are legit readings, not
-    // filtered out. The fix is a genuine stop: distance 0 (so the new
-    // moving-threshold logic trusts the 0 rather than deriving a speed).
-    gps.distanceOverrides.add(0.0);
-    gps.controller.add(_pos(speed: 0)); // 0 km/h, stopped
+    // filtered out. position.speed == 0 is trusted directly (no derivation),
+    // and the odometer integrator adds nothing while stopped.
+    gps.controller
+        .add(_pos(speed: 0, at: t0.add(const Duration(seconds: 2))));
     await Future<void>.delayed(Duration.zero);
 
     final t2 = container.read(stageControllerProvider).telemetry;
@@ -691,107 +708,163 @@ void main() {
     expect(t2.maxSpeedKmh, closeTo(72, 1e-9));
   });
 
-  test('speed is derived from distance/time when GPS reports 0 while moving',
+  test('speed is read from position.speed (FusedLocation populates it)',
       () async {
-    // Reproduces the A059 behavior: FusedLocation returns position.speed == 0
-    // even while the device is moving. Pre-fix, max/min stayed at 0 for the
-    // whole stage; post-fix, the speed is derived from the distance between
-    // fixes once it crosses the moving threshold.
+    // The primary path: the chipset reports a real velocity in position.speed,
+    // which we trust (gated by accuracy + clamped + spike-checked). This is
+    // what Google Maps / Waze do — no distance/time derivation.
     await readController().startStage();
 
     final t0 = DateTime(2026, 6, 24, 12, 0, 0);
-    // First fix seeds `last` (no distance call); speed 0 → reads 0.
-    gps.controller.add(_pos(speed: 0, at: t0));
+    // Establish a moving baseline (72 km/h) so the next fix's 108 km/h is a
+    // plausible 36 km/h/s step — within the spike cap, so it's accepted. (A
+    // 0→108 km/h jump in 1 s is physically impossible and would be rejected.)
+    gps.controller.add(_pos(speed: 20, at: t0, accuracy: 10));
     await Future<void>.delayed(Duration.zero);
-    // Second fix: moved 30 m in 1 s → 108 km/h. GPS reports 0 but we crossed
-    // the threshold, so the derived speed is used.
-    gps.distanceOverrides.add(30.0);
-    gps.controller.add(_pos(speed: 0, at: t0.add(const Duration(seconds: 1))));
+    // 30 m/s (108 km/h) reported by the GPS, good accuracy → trusted directly.
+    gps.controller
+        .add(_pos(speed: 30, at: t0.add(const Duration(seconds: 1)), accuracy: 10));
     await Future<void>.delayed(Duration.zero);
 
     final t = container.read(stageControllerProvider).telemetry;
     expect(t.maxSpeedKmh, closeTo(108, 1e-6));
-    expect(t.minSpeedKmh, closeTo(0, 1e-6));
+    expect(t.minSpeedKmh, closeTo(72, 1e-6));
     expect(t.currentSpeed, closeTo(108, 1e-6));
+    // Odometer integrated from speed: 30 m/s × 1 s = 0.03 km (not haversine).
+    expect(t.currentDistance, closeTo(0.03, 1e-6));
   });
 
-  test(
-      'poor-accuracy fix does not inflate maxSpeedKmh (A059 jitter regression)',
+  test('stationary at a light: jitter must not produce a phantom speed',
       () async {
-    // Reproduces the A059 jitter: a good fix establishes a real speed, then a
-    // 600m-accuracy fix teleports 1km in 6s — pre-fix that derived 600 km/h
-    // and polluted maxSpeedKmh (the log showed 567 km/h persisted to SQLite).
-    // The accuracy gate holds the previous speed; distance still accumulates.
+    // Regression for the reported "34 km/h while stopped at a traffic light".
+    // The old derive path turned sub-noise jitter (a few metres between fixes
+    // while stationary) into a non-zero speed. Now position.speed == 0 is
+    // trusted directly and the odometer integrates speed (0 here), so neither
+    // the speed nor the distance creep.
     await readController().startStage();
 
     final t0 = DateTime(2026, 6, 24, 12, 0, 0);
-    // First fix seeds `last` (speed 0 → reads 0).
-    gps.controller.add(_pos(speed: 0, at: t0, accuracy: 10));
+    gps.controller.add(_pos(speed: 0, at: t0, accuracy: 10)); // baseline, stopped
     await Future<void>.delayed(Duration.zero);
-    // Second fix: 30 m in 1 s → 108 km/h, good accuracy → derived & kept.
-    gps.distanceOverrides.add(30.0);
+    // Several stationary fixes with a few metres of haversine jitter each.
+    for (var i = 1; i <= 4; i++) {
+      gps.distanceOverrides.add(5.0); // jitter, ignored by the speed integrator
+      gps.controller
+          .add(_pos(speed: 0, at: t0.add(Duration(seconds: i)), accuracy: 10));
+      await Future<void>.delayed(Duration.zero);
+    }
+
+    final t = container.read(stageControllerProvider).telemetry;
+    expect(t.currentSpeed, 0.0);
+    expect(t.maxSpeedKmh, 0.0);
+    // Jitter never reached the odometer (speed-based, not haversine-based).
+    expect(t.currentDistance, 0.0);
+  });
+
+  test('a speed spike is rejected (impossible acceleration)', () async {
+    // Regression for the reported "180 km/h in the city". A single junk fix
+    // claiming a huge speed can't snap the readout: the |dv|/dt rate cap holds
+    // the previous accepted speed and logs the rejection.
+    await readController().startStage();
+
+    final t0 = DateTime(2026, 6, 24, 12, 0, 0);
+    // Establish a steady 50.4 km/h (14 m/s) over two fixes.
+    gps.controller.add(_pos(speed: 14, at: t0, accuracy: 10));
+    await Future<void>.delayed(Duration.zero);
     gps.controller
-        .add(_pos(speed: 0, at: t0.add(const Duration(seconds: 1)), accuracy: 10));
+        .add(_pos(speed: 14, at: t0.add(const Duration(seconds: 1)), accuracy: 10));
     await Future<void>.delayed(Duration.zero);
     expect(
-      container.read(stageControllerProvider).telemetry.maxSpeedKmh,
-      closeTo(108, 1e-6),
+      container.read(stageControllerProvider).telemetry.currentSpeed,
+      closeTo(50.4, 1e-6),
     );
 
-    // Third fix: 1000 m in 6 s → would derive ~600 km/h, but accuracy 600m
-    // exceeds the gate → speed held at 108, maxSpeedKmh unchanged.
-    gps.distanceOverrides.add(1000.0);
+    // A 56 m/s (201.6 km/h) fix 1 s later → |201.6 − 50.4| / 1 s = 151 km/h/s,
+    // far above the 36 km/h/s cap → rejected, speed held, max unchanged.
+    gps.distanceOverrides.add(50.0);
     gps.controller.add(
-        _pos(speed: 0, at: t0.add(const Duration(seconds: 7)), accuracy: 600));
+        _pos(speed: 56, at: t0.add(const Duration(seconds: 2)), accuracy: 10));
     await Future<void>.delayed(Duration.zero);
 
     final t = container.read(stageControllerProvider).telemetry;
-    expect(t.maxSpeedKmh, closeTo(108, 1e-6));
-    expect(t.currentSpeed, closeTo(108, 1e-6));
-    // Distance still accumulates (A1 doesn't under-count the stage).
-    expect(t.currentDistance, closeTo(1.03, 1e-9));
-    // The rejected fix is logged for diagnostic analysis.
+    expect(t.currentSpeed, closeTo(50.4, 1e-6));
+    expect(t.maxSpeedKmh, closeTo(50.4, 1e-6));
     expect(
-      logger.records.where((r) => r['type'] == 'fix_speed_held'),
+      logger.records.where((r) =>
+          r['type'] == 'fix_rejected' &&
+          (r['data'] as Map<String, Object?>)['reason'] == 'spike'),
       isNotEmpty,
     );
   });
 
-  test('derived speed is clamped to the backstop ceiling', () async {
-    // A fix with good-enough accuracy (passes the gate) but an extreme
-    // distance/time ratio still can't exceed the backstop clamp.
+  test(
+      'poor-accuracy fix is rejected: speed held, odometer untouched, baseline kept',
+      () async {
+    // A 600 m-accuracy fix can teleport hundreds of metres; it must not update
+    // the speed, must not add to the odometer, and must not advance the
+    // baseline (so it can't poison the next interval).
     await readController().startStage();
 
     final t0 = DateTime(2026, 6, 24, 12, 0, 0);
-    gps.controller.add(_pos(speed: 0, at: t0, accuracy: 20));
+    // Establish 50.4 km/h (14 m/s), good accuracy. Odometer += 0.014 km.
+    gps.controller.add(_pos(speed: 14, at: t0, accuracy: 10));
     await Future<void>.delayed(Duration.zero);
-    // 120 m in 1 s → 432 km/h derived; accuracy 20m passes the gate, so the
-    // backstop clamp is what caps it at 200.
-    gps.distanceOverrides.add(120.0);
     gps.controller
-        .add(_pos(speed: 0, at: t0.add(const Duration(seconds: 1)), accuracy: 20));
+        .add(_pos(speed: 14, at: t0.add(const Duration(seconds: 1)), accuracy: 10));
+    await Future<void>.delayed(Duration.zero);
+    final before =
+        container.read(stageControllerProvider).telemetry.currentDistance;
+    expect(before, closeTo(0.014, 1e-6));
+
+    // Poor-accuracy fix (teleports 1 km via the haversine override): rejected.
+    gps.distanceOverrides.add(1000.0);
+    gps.controller.add(
+        _pos(speed: 14, at: t0.add(const Duration(seconds: 2)), accuracy: 600));
     await Future<void>.delayed(Duration.zero);
 
     final t = container.read(stageControllerProvider).telemetry;
-    expect(t.currentSpeed, closeTo(200, 1e-6));
-    expect(t.maxSpeedKmh, closeTo(200, 1e-6));
+    expect(t.currentSpeed, closeTo(50.4, 1e-6));
+    expect(t.maxSpeedKmh, closeTo(50.4, 1e-6));
+    // The teleport added nothing to the odometer.
+    expect(t.currentDistance, closeTo(0.014, 1e-6));
+    expect(
+      logger.records.where((r) =>
+          r['type'] == 'fix_rejected' &&
+          (r['data'] as Map<String, Object?>)['reason'] == 'poor_accuracy'),
+      isNotEmpty,
+    );
+  });
+
+  test('speed is clamped to the physical ceiling (baseline fix)', () async {
+    // A baseline fix (no previous fix → no spike check) reporting an absurd
+    // speed is clamped to the physical ceiling rather than displayed raw.
+    await readController().startStage();
+
+    final t0 = DateTime(2026, 6, 24, 12, 0, 0);
+    // 100 m/s = 360 km/h → clamped to 250 km/h.
+    gps.controller.add(_pos(speed: 100, at: t0, accuracy: 10));
+    await Future<void>.delayed(Duration.zero);
+
+    final t = container.read(stageControllerProvider).telemetry;
+    expect(t.currentSpeed, closeTo(250, 1e-6));
+    expect(t.maxSpeedKmh, closeTo(250, 1e-6));
   });
 
   test('stopStage snapshots a StageResult with max/min/distance/completedAt',
       () async {
     await readController().startStage();
 
-    // First fix seeds `last` (0 distance); two moving fixes each add 0.1 km
-    // (metresPerStep=100) → 0.2 km total and a 72 km/h max; a final genuine
-    // stop (distance 0, speed 0) pins the min at 0.
-    gps.controller.add(_pos(speed: 10)); // 36 km/h, +0 km
+    // First fix seeds `last` (0 km); two moving fixes each integrate 0.02 km
+    // (20 m/s × 1 s) → 0.04 km total and a 72 km/h max; a final genuine stop
+    // (speed 0) pins the min at 0 (deceleration to 0 is always accepted).
+    final t0 = DateTime(2026, 6, 24, 12, 0, 0);
+    gps.controller.add(_pos(speed: 10, at: t0)); // 36 km/h, +0 km
     await Future<void>.delayed(Duration.zero);
-    gps.controller.add(_pos(speed: 20)); // 72 km/h, +0.1 km
+    gps.controller.add(_pos(speed: 20, at: t0.add(const Duration(seconds: 1))));
     await Future<void>.delayed(Duration.zero);
-    gps.controller.add(_pos(speed: 20)); // 72 km/h, +0.1 km
+    gps.controller.add(_pos(speed: 20, at: t0.add(const Duration(seconds: 2))));
     await Future<void>.delayed(Duration.zero);
-    gps.distanceOverrides.add(0.0);
-    gps.controller.add(_pos(speed: 0)); // 0 km/h, stopped, +0 km
+    gps.controller.add(_pos(speed: 0, at: t0.add(const Duration(seconds: 3))));
     await Future<void>.delayed(Duration.zero);
 
     readController().stopStage();
@@ -800,13 +873,13 @@ void main() {
     expect(result, isNotNull);
     expect(result!.maxSpeedKmh, closeTo(72, 1e-9));
     expect(result.minSpeedKmh, closeTo(0, 1e-9));
-    expect(result.totalDistanceKm, closeTo(0.2, 1e-9));
+    expect(result.totalDistanceKm, closeTo(0.04, 1e-9));
     expect(result.completedAt, isNotNull);
   });
 
   test('startStage resets max/min/result between stages', () async {
     await readController().startStage();
-    gps.controller.add(_pos(speed: 20)); // 72 km/h
+    gps.controller.add(_pos(speed: 20)); // 72 km/h (baseline, no spike check)
     await Future<void>.delayed(Duration.zero);
     readController().stopStage();
     expect(
@@ -828,10 +901,11 @@ void main() {
     expect(container.read(actualAvgSpeedProvider), isNull);
 
     await readController().startStage();
-    // Feed two fixes so distance accumulates (the first fix seeds `last`).
-    gps.controller.add(_pos(speed: 10));
+    // Feed two fixes 1 s apart so distance accumulates (the first seeds `last`).
+    final t0 = DateTime(2026, 6, 24, 12, 0, 0);
+    gps.controller.add(_pos(speed: 10, at: t0));
     await Future<void>.delayed(Duration.zero);
-    gps.controller.add(_pos(speed: 20));
+    gps.controller.add(_pos(speed: 20, at: t0.add(const Duration(seconds: 1))));
     await Future<void>.delayed(Duration.zero);
 
     // Give the 1 Hz clock a chance to tick.
@@ -870,27 +944,29 @@ void main() {
 
   // --- telemetry logging -----------------------------------------------------
 
-  test('fix events are logged with the distance/time-derived speed (A059)',
+  test('fix events are logged with position.speed as the speed source',
       () async {
-    // FusedLocation reports speed == 0 while moving (the A059 case); once the
-    // moving threshold is crossed the logger records the derived speed, and the
-    // raw GPS speed fields make that derivation visible in the log.
+    // The logger records the chipset's position.speed (raw + km/h) and the
+    // accepted speed, so a pulled log shows whether the device actually
+    // reported a velocity (the FusedLocation health check after a track test).
     await readController().startStage();
 
     final t0 = DateTime(2026, 6, 24, 12, 0, 0);
-    gps.controller.add(_pos(speed: 0, at: t0)); // baseline, seeds `last`
+    // Moving baseline (72 km/h) so the 108 km/h step is plausible (within the
+    // spike cap) and accepted; the log then records the real reported velocity.
+    gps.controller.add(_pos(speed: 20, at: t0, accuracy: 10));
     await Future<void>.delayed(Duration.zero);
-    gps.distanceOverrides.add(30.0);
-    gps.controller.add(_pos(speed: 0, at: t0.add(const Duration(seconds: 1))));
+    // 30 m/s (108 km/h) reported by the GPS, good accuracy → trusted.
+    gps.controller
+        .add(_pos(speed: 30, at: t0.add(const Duration(seconds: 1)), accuracy: 10));
     await Future<void>.delayed(Duration.zero);
 
     final fixes = logger.records.where((r) => r['type'] == 'fix').toList();
     expect(fixes.length, greaterThanOrEqualTo(2));
     final moving = fixes.last;
-    expect(moving['rawSpeedMps'], 0.0); // GPS reported nothing
-    expect(moving['gpsSpeedKmh'], 0.0); // ... so the GPS speed is 0 too
+    expect(moving['rawSpeedMps'], 30.0); // GPS reported the real velocity
+    expect(moving['gpsSpeedKmh'], 108.0); // ... so the GPS speed is 108 km/h
     expect((moving['speedKmh'] as num).toDouble(), closeTo(108, 1e-6));
-    expect((moving['addedM'] as num).toDouble(), closeTo(30, 1e-9));
     expect(moving['dtMs'], 1000);
     expect(moving['baseline'], isFalse);
     // The baseline fix (first) is flagged so the analyzer can distinguish it.

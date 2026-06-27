@@ -11,27 +11,25 @@ import 'services/device_service.dart';
 import 'services/gps_service.dart';
 import 'services/telemetry_logger.dart';
 
-/// Minimum distance (metres) between two fixes before a GPS speed reading of
-/// 0 is treated as "unavailable" and the speed is derived from distance/time.
-/// Some Android FusedLocation providers report `position.speed == 0` even
-/// while the device is moving (observed on the A059 test device), so a 0
-/// reading is only trusted when the fixes are close together; below this it's
-/// treated as a real stop (and absorbs ordinary GPS jitter at a standstill).
-const double _kMovingThresholdMetres = 5.0;
-
-/// Fixes with accuracy worse than this (metres) are not trusted to update the
-/// distance/time-derived speed. A poor-accuracy fix can teleport hundreds of
-/// metres in one interval and yield an impossible speed (observed 567 km/h on
-/// the A059 with accuracy 600m). Distance still accumulates — we don't
-/// under-count the stage — only the speed reading is held at its previous
-/// value. `accuracy == 0` (test sentinel / perfect fix) always passes.
+/// Fixes with accuracy worse than this (metres) are rejected outright: their
+/// speed is held (not trusted) and they contribute nothing to the odometer or
+/// to the displacement baseline. A poor-accuracy fix can teleport hundreds of
+/// metres in one interval; accepting it would inflate both the speed and the
+/// odometer (the Pixel log showed a 3x odometer overcount from such jitter).
+/// `accuracy == 0` (test sentinel / perfect fix) always passes.
 const double _kPoorAccuracyMetres = 50.0;
 
-/// Hard ceiling for the distance/time-derived speed (km/h). Backstop for any
-/// jitter that slips past the accuracy gate; a real regularity stage won't
-/// approach this. GPS-reported speeds (`position.speed > 0`) are trusted
-/// as-is and are NOT clamped.
-const double _kMaxDerivedSpeedKmh = 200.0;
+/// Hard physical ceiling for the speed (km/h), applied to the chipset's
+/// `position.speed` reading and to any fallback alike. A real regularity stage
+/// in a Z3 won't approach this (top ~240 km/h); values above are jitter and
+/// are clamped.
+const double _kMaxPlausibleSpeedKmh = 250.0;
+
+/// Maximum believable |dv| per second (km/h per second). ~36 km/h/s is roughly
+/// 10 m/s^2 - a hard launch / emergency-brake threshold. A reading that implies
+/// a faster change than this is a spike: hold the previous accepted speed
+/// rather than snapping to the junk reading.
+const double _kMaxAccelKmhPerSecond = 36.0;
 
 /// Owns the single active stage: its [StageConfig] and live [StageTelemetry].
 ///
@@ -187,82 +185,101 @@ class StageController extends Notifier<RallyState> {
 
   Future<void> _subscribeGps(GpsService gps) async {
     await _positionSub?.cancel();
-    Position? last;
+    Position? last; // last *accepted* fix (origin for displacement + odometer)
     final logger = ref.read(telemetryLoggerProvider);
+    // Per-subscription smoothing state. Seeds from the live `currentSpeed`
+    // (0 at start, the held value on resume) so there is no jump on resume.
+    double prevAcceptedKmh = telemetry.currentSpeed;
+    DateTime? prevAcceptedAt;
 
-    _positionSub = gps.positionStream().listen((pos) async {
-      final double addedMetres;
-      if (last != null) {
-        addedMetres = gps.distanceBetween(
-          startLatitude: last!.latitude,
-          startLongitude: last!.longitude,
-          endLatitude: pos.latitude,
-          endLongitude: pos.longitude,
-        );
-      } else {
-        addedMetres = 0.0;
-      }
-
+    _positionSub = gps
+        .positionStream(bestForNavigation: true)
+        .listen((pos) async {
+      final t = telemetry;
       final hadPreviousFix = last != null;
-      final dtMs = hadPreviousFix
+      final addedMetres = hadPreviousFix
+          ? gps.distanceBetween(
+              startLatitude: last!.latitude,
+              startLongitude: last!.longitude,
+              endLatitude: pos.latitude,
+              endLongitude: pos.longitude,
+            )
+          : 0.0;
+      // Raw inter-fix time delta (logged as-is). Clamped for the speed/accel
+      // math so a 0 / negative gap (clock skew, duplicate fix) can't amplify a
+      // reading, and a huge gap doesn't stall the rate-limit.
+      final rawDtMs = hadPreviousFix
           ? pos.timestamp.difference(last!.timestamp).inMilliseconds
           : 0;
+      final dtMs = rawDtMs == 0 ? 0 : rawDtMs.abs().clamp(200, 60000);
+      final dtSec = dtMs / 1000.0;
 
-      // position.speed is in m/s and may be NaN / -1 when unavailable. Some
-      // Android FusedLocation providers return 0.0 even while moving (observed
-      // on the A059), so a 0 reading is only trusted when the fixes are close;
-      // if we covered real ground this interval the GPS speed is unreliable and
-      // we derive the speed from the distance/time between fixes instead.
-      final gpsSpeedKmh =
+      // position.speed is the chipset's (fused) velocity in m/s. NaN/-1 when
+      // unavailable; FusedLocation normally populates it. A 0 reading is a real
+      // stop (the odometer integrator contributes nothing when speed is 0).
+      final dopplerKmh =
           (!pos.speed.isNaN && pos.speed >= 0) ? pos.speed * 3.6 : null;
 
-      final double speedKmh;
-      if (gpsSpeedKmh != null && gpsSpeedKmh > 0) {
-        // GPS reports actual movement — trust it.
-        speedKmh = gpsSpeedKmh;
-      } else if (hadPreviousFix) {
-        final derivedKmh = dtMs > 0
-            ? (addedMetres / 1000.0) / (dtMs / 3600000.0)
-            : telemetry.currentSpeed;
-        if (addedMetres <= _kMovingThresholdMetres) {
-          // Below the jitter threshold — trust "stopped" (real stops and GPS
-          // jitter at a standstill both read 0 here, preserving "min includes
-          // 0").
-          speedKmh = gpsSpeedKmh ?? 0.0;
-        } else {
-          // Moved past the threshold but GPS speed is 0/unavailable — derive.
-          // Gate by accuracy: a poor fix can teleport hundreds of metres and
-          // yield an impossible speed. Hold the previous reading instead of
-          // recording junk; distance still accumulates above.
-          final accuracyGood =
-              pos.accuracy <= 0 || pos.accuracy <= _kPoorAccuracyMetres;
-          if (!accuracyGood) {
-            logger.event(type: 'fix_speed_held', data: {
-              'accuracy': pos.accuracy,
-              'addedM': addedMetres,
-              'derivedKmh': derivedKmh,
-            });
-            speedKmh = telemetry.currentSpeed;
-          } else {
-            // Backstop clamp regardless — catches borderline-accuracy
-            // outliers that pass the gate but still over-derive.
-            speedKmh = math.min(derivedKmh, _kMaxDerivedSpeedKmh);
-          }
-        }
+      final accuracyGood =
+          pos.accuracy <= 0 || pos.accuracy <= _kPoorAccuracyMetres;
+
+      // Decide the accepted speed for this fix. A rejected fix holds the
+      // previous speed, contributes nothing to the odometer, and does NOT
+      // advance `last` (so it can't poison the next interval).
+      final double acceptedKmh;
+      String? rejectReason;
+      if (!accuracyGood) {
+        acceptedKmh = prevAcceptedKmh;
+        rejectReason = 'poor_accuracy';
+      } else if (dopplerKmh == null) {
+        // Speed unavailable on an otherwise-good fix: hold previous. (Rare on
+        // FusedLocation; the odometer falls back to displacement below.)
+        acceptedKmh = prevAcceptedKmh;
       } else {
-        speedKmh = 0.0;
+        final clamped = math.min(dopplerKmh, _kMaxPlausibleSpeedKmh);
+        // Spike / impossible-acceleration rejection: a reading jumping faster
+        // than a car physically can is jitter, not real motion.
+        if (prevAcceptedAt != null &&
+            clamped > 5.0 &&
+            (clamped - prevAcceptedKmh).abs() / dtSec >
+                _kMaxAccelKmhPerSecond) {
+          acceptedKmh = prevAcceptedKmh;
+          rejectReason = 'spike';
+        } else {
+          acceptedKmh = clamped;
+        }
       }
 
-      last = pos;
+      // Display the accepted speed directly. The accuracy gate + physical
+      // clamp + spike rejection handle the gross errors; the UI rounds to an
+      // integer, which absorbs residual Doppler jitter on the last digit.
+      final speedKmh = acceptedKmh;
 
-      final newMax = math.max(telemetry.maxSpeedKmh, speedKmh);
-      final newMin = telemetry.minSpeedKmh == null
-          ? speedKmh
-          : math.min(telemetry.minSpeedKmh!, speedKmh);
+      // Odometer = integral of speed*dt (jitter-immune): at a stop speed is 0
+      // so nothing accumulates; while moving it's the real kinematic distance.
+      // Falls back to haversine displacement only when speed is unavailable on an
+      // accepted fix. Rejected fixes add nothing.
+      final double odoDeltaKm;
+      if (rejectReason == null && hadPreviousFix) {
+        if (dopplerKmh != null) {
+          odoDeltaKm = (dopplerKmh / 3.6) * dtSec / 1000.0;
+        } else {
+          odoDeltaKm = addedMetres / 1000.0;
+        }
+      } else {
+        odoDeltaKm = 0.0;
+      }
+
+      // Aggregate the accepted (pre-smoothing) speed so outliers never reach
+      // max/min. Min includes 0 (genuine stops).
+      final newMax = math.max(t.maxSpeedKmh, acceptedKmh);
+      final newMin = t.minSpeedKmh == null
+          ? acceptedKmh
+          : math.min(t.minSpeedKmh!, acceptedKmh);
 
       state = state.copyWith(
         telemetry: telemetry.copyWith(
-          currentDistance: telemetry.currentDistance + addedMetres / 1000.0,
+          currentDistance: t.currentDistance + odoDeltaKm,
           currentSpeed: speedKmh,
           latitude: pos.latitude,
           longitude: pos.longitude,
@@ -271,43 +288,60 @@ class StageController extends Notifier<RallyState> {
         ),
       );
 
+      // Baseline hygiene: advance `last` and the smoothing state only on an
+      // accepted fix. A rejected fix is logged but otherwise ignored.
+      if (rejectReason == null) {
+        last = pos;
+        prevAcceptedKmh = speedKmh;
+        prevAcceptedAt = pos.timestamp;
+      } else {
+        logger.event(type: 'fix_rejected', data: {
+          'reason': rejectReason,
+          'accuracy': pos.accuracy,
+          'addedM': addedMetres,
+          'gpsSpeedKmh': dopplerKmh,
+          'heldKmh': prevAcceptedKmh,
+        });
+      }
+
       logger.fix(
         pos: pos,
         addedMetres: addedMetres,
-        dtMs: dtMs,
-        gpsSpeedKmh: gpsSpeedKmh,
+        dtMs: rawDtMs,
+        gpsSpeedKmh: dopplerKmh,
         speedKmh: speedKmh,
-        distanceKm: telemetry.currentDistance,
-        maxSpeedKmh: telemetry.maxSpeedKmh,
-        minSpeedKmh: telemetry.minSpeedKmh,
+        distanceKm: t.currentDistance + odoDeltaKm,
+        maxSpeedKmh: newMax,
+        minSpeedKmh: newMin,
         baseline: !hadPreviousFix,
-        status: telemetry.status,
+        status: t.status,
       );
 
-      // Finish prompt (location): once we have at least two fixes (so the
-      // first fix at the start can't trip it), raise the finish-confirmation
-      // prompt when the device enters the finish geofence — instead of
-      // silently auto-stopping. Only when a finish is set and auto-stop is
-      // enabled. The prompt is once-per-stage (the notifier guards it).
-      final cfg = config;
-      if (hadPreviousFix &&
-          cfg.autoStop &&
-          cfg.endLatitude != null &&
-          cfg.endLongitude != null) {
-        final dToEnd = gps.distanceBetween(
-          startLatitude: pos.latitude,
-          startLongitude: pos.longitude,
-          endLatitude: cfg.endLatitude!,
-          endLongitude: cfg.endLongitude!,
-        );
-        if (dToEnd <= cfg.endGeofenceRadiusM) {
-          logger.event(type: 'finish_entered', data: {
-            'dToEndM': dToEnd,
-            'radiusM': cfg.endGeofenceRadiusM,
-          });
-          await ref.read(deviceServiceProvider).haptic();
-          ref.read(stageFinishProvider.notifier).requestLocationFinish();
-          return;
+      // Finish prompt (location): once we have at least two accepted fixes
+      // (so the first fix can't trip it), raise the finish-confirmation prompt
+      // when the device enters the finish geofence - instead of silently
+      // auto-stopping. Only on an accepted fix and when a finish is set +
+      // auto-stop is enabled. The prompt is once-per-stage (notifier guards).
+      if (rejectReason == null && hadPreviousFix) {
+        final cfg = config;
+        if (cfg.autoStop &&
+            cfg.endLatitude != null &&
+            cfg.endLongitude != null) {
+          final dToEnd = gps.distanceBetween(
+            startLatitude: pos.latitude,
+            startLongitude: pos.longitude,
+            endLatitude: cfg.endLatitude!,
+            endLongitude: cfg.endLongitude!,
+          );
+          if (dToEnd <= cfg.endGeofenceRadiusM) {
+            logger.event(type: 'finish_entered', data: {
+              'dToEndM': dToEnd,
+              'radiusM': cfg.endGeofenceRadiusM,
+            });
+            await ref.read(deviceServiceProvider).haptic();
+            ref.read(stageFinishProvider.notifier).requestLocationFinish();
+            return;
+          }
         }
       }
     });

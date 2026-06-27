@@ -50,6 +50,7 @@ class _FakeGps implements GpsService {
   Stream<Position> positionStream({
     LocationAccuracy accuracy = LocationAccuracy.high,
     int distanceFilter = 0,
+    bool bestForNavigation = false,
   }) =>
       const Stream<Position>.empty();
 

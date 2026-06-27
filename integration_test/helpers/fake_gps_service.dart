@@ -65,6 +65,7 @@ class FakeGpsService implements GpsService {
   Stream<Position> positionStream({
     LocationAccuracy accuracy = LocationAccuracy.high,
     int distanceFilter = 0,
+    bool bestForNavigation = false,
   }) =>
       controller.stream;
 

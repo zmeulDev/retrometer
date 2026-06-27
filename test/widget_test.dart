@@ -41,6 +41,7 @@ class _FakeGps implements GpsService {
   Stream<Position> positionStream({
     LocationAccuracy accuracy = LocationAccuracy.high,
     int distanceFilter = 0,
+    bool bestForNavigation = false,
   }) =>
       controller.stream;
 
@@ -69,19 +70,6 @@ class _FakeDevice implements DeviceService {
   @override
   Future<void> haptic({int durationMs = 30}) async {}
 }
-
-Position _pos({required double speed}) => Position(
-      longitude: 0,
-      latitude: 0,
-      timestamp: DateTime.now(),
-      accuracy: 0,
-      altitude: 0,
-      altitudeAccuracy: 0,
-      heading: 0,
-      headingAccuracy: 0,
-      speed: speed,
-      speedAccuracy: 0,
-    );
 
 /// A throwaway SQLite-backed repository at a unique temp path, so the full-app
 /// pumps (which read `competitionsProvider` on the host) don't hit sqflite's
@@ -119,11 +107,13 @@ Future<ProviderContainer> _startAndFeed(
   );
   await container.read(stageControllerProvider.notifier).startStage();
   await tester.pump();
-  // First fix: last == null ⇒ adds 0 m (establishes a previous fix).
-  gps.controller.add(_pos(speed: 0));
-  await tester.pump();
-  // Second fix: distanceBetween ⇒ metresPerStep added.
-  gps.controller.add(_pos(speed: 0));
+  // Set the distance directly via the blind-touch offset (what the crew uses to
+  // zero/trim the odometer). The GPS integrator can't produce a 100+ km reading
+  // from a couple of fixes (speed is clamped), and these tests only check that
+  // a large distance string fits the layout — not the GPS math itself.
+  container
+      .read(stageControllerProvider.notifier)
+      .adjustDistance(metresPerStep / 1000.0);
   await tester.pumpAndSettle();
   return container;
 }
