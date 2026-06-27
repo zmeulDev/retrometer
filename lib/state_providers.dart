@@ -31,6 +31,15 @@ const double _kMaxPlausibleSpeedKmh = 250.0;
 /// rather than snapping to the junk reading.
 const double _kMaxAccelKmhPerSecond = 36.0;
 
+/// Jitter floor (metres) for the displacement-derived speed fallback. A
+/// stationary fix still scatters a few metres between samples; the fallback
+/// must not turn that sub-noise jitter into a phantom speed. The floor scales
+/// with the fix accuracy (a 30 m-accuracy fix can legitimately scatter ~60 m at
+/// a true stop), so the effective gate is `max(_kMovingThresholdMetres,
+/// accuracy * 2)`. A real move clears it easily (30 km/h over 6 s ≈ 50 m); a
+/// real stop never does. See `_subscribeGps`.
+const double _kMovingThresholdMetres = 10.0;
+
 /// Owns the single active stage: its [StageConfig] and live [StageTelemetry].
 ///
 /// Drives a high-accuracy GPS position stream while in progress, accumulating
@@ -214,14 +223,45 @@ class StageController extends Notifier<RallyState> {
       final dtMs = rawDtMs == 0 ? 0 : rawDtMs.abs().clamp(200, 60000);
       final dtSec = dtMs / 1000.0;
 
-      // position.speed is the chipset's (fused) velocity in m/s. NaN/-1 when
-      // unavailable; FusedLocation normally populates it. A 0 reading is a real
-      // stop (the odometer integrator contributes nothing when speed is 0).
+      // position.speed is the chipset's (fused) velocity in m/s. NaN when
+      // unavailable. A *positive* reading is real Doppler velocity (the primary
+      // source). A 0 reading is ambiguous: a genuine stop OR the chipset not
+      // reporting velocity — common during GPS cold-start on this Pixel (~20% of
+      // fixes report 0 while the car is moving). We can't tell from speed alone,
+      // so dopplerKmh is null for both 0 and NaN; the displacement fallback below
+      // decides whether a 0 is a real stop or a cold-start gap.
       final dopplerKmh =
-          (!pos.speed.isNaN && pos.speed >= 0) ? pos.speed * 3.6 : null;
+          (!pos.speed.isNaN && pos.speed > 0) ? pos.speed * 3.6 : null;
 
       final accuracyGood =
           pos.accuracy <= 0 || pos.accuracy <= _kPoorAccuracyMetres;
+
+      // Displacement-derived fallback speed (m/s → km/h). When Doppler is absent
+      // (0 / NaN) but the position actually displaced beyond jitter, derive the
+      // speed from displacement / time. This keeps the readout alive and the
+      // odometer advancing during cold-start, until the chipset warms up and
+      // Doppler takes over. Gated so it can't reintroduce the A059 derivation
+      // junk: (1) accuracy must be good (a 200 m-accuracy teleport can't fake
+      // motion), (2) displacement must clear a jitter floor that scales with the
+      // fix accuracy (a real stop stays 0), (3) the derived speed is bounded by
+      // the physical ceiling (junk stays junk → no fallback).
+      final double? derivedKmh;
+      if (hadPreviousFix && accuracyGood && dopplerKmh == null) {
+        final jitterFloor = math.max(_kMovingThresholdMetres, pos.accuracy * 2);
+        if (addedMetres > jitterFloor) {
+          // Use the actual inter-fix time (not the clamped dt) so a long
+          // dropout doesn't overstate the derived speed; fall back to the
+          // clamped dt only for a 0 / duplicate timestamp.
+          final moveDtSec =
+              rawDtMs.abs() > 0 ? rawDtMs.abs() / 1000.0 : dtSec;
+          final derived = addedMetres / moveDtSec * 3.6;
+          derivedKmh = derived <= _kMaxPlausibleSpeedKmh ? derived : null;
+        } else {
+          derivedKmh = null;
+        }
+      } else {
+        derivedKmh = null;
+      }
 
       // Decide the accepted speed for this fix. A rejected fix holds the
       // previous speed, contributes nothing to the odometer, and does NOT
@@ -231,12 +271,13 @@ class StageController extends Notifier<RallyState> {
       if (!accuracyGood) {
         acceptedKmh = prevAcceptedKmh;
         rejectReason = 'poor_accuracy';
-      } else if (dopplerKmh == null) {
-        // Speed unavailable on an otherwise-good fix: hold previous. (Rare on
-        // FusedLocation; the odometer falls back to displacement below.)
-        acceptedKmh = prevAcceptedKmh;
       } else {
-        final clamped = math.min(dopplerKmh, _kMaxPlausibleSpeedKmh);
+        // Primary: Doppler. Fallback: displacement-derived (only when Doppler is
+        // absent AND the car is actually moving). When both are absent the car
+        // is genuinely stopped → 0 (the spike check is skipped for 0, so a
+        // deceleration to a stop is always accepted).
+        final raw = dopplerKmh ?? derivedKmh ?? 0.0;
+        final clamped = math.min(raw, _kMaxPlausibleSpeedKmh);
         // Spike / impossible-acceleration rejection: a reading jumping faster
         // than a car physically can is jitter, not real motion.
         if (prevAcceptedAt != null &&
@@ -257,14 +298,19 @@ class StageController extends Notifier<RallyState> {
 
       // Odometer = integral of speed*dt (jitter-immune): at a stop speed is 0
       // so nothing accumulates; while moving it's the real kinematic distance.
-      // Falls back to haversine displacement only when speed is unavailable on an
-      // accepted fix. Rejected fixes add nothing.
+      // When Doppler is absent but the car is moving (cold-start), integrate the
+      // derived speed — which equals the actual displacement (derived =
+      // addedMetres/dt → integrand = addedMetres), so using addedMetres directly
+      // avoids dt-clamp error. Rejected fixes, genuine stops, and junk
+      // displacement (derived capped to null) all add nothing.
       final double odoDeltaKm;
       if (rejectReason == null && hadPreviousFix) {
         if (dopplerKmh != null) {
           odoDeltaKm = (dopplerKmh / 3.6) * dtSec / 1000.0;
-        } else {
+        } else if (derivedKmh != null) {
           odoDeltaKm = addedMetres / 1000.0;
+        } else {
+          odoDeltaKm = 0.0;
         }
       } else {
         odoDeltaKm = 0.0;
@@ -294,6 +340,18 @@ class StageController extends Notifier<RallyState> {
         last = pos;
         prevAcceptedKmh = speedKmh;
         prevAcceptedAt = pos.timestamp;
+        // Surface the fallback in the log so a pulled track-test record shows
+        // exactly when the chipset reported speed=0 while moving (cold-start)
+        // and the displacement-derived speed carried the readout.
+        if (dopplerKmh == null && derivedKmh != null) {
+          logger.event(type: 'speed_fallback', data: {
+            'rawSpeedMps': pos.speed,
+            'derivedKmh': derivedKmh,
+            'addedM': addedMetres,
+            'dtMs': rawDtMs,
+            'accuracy': pos.accuracy,
+          });
+        }
       } else {
         logger.event(type: 'fix_rejected', data: {
           'reason': rejectReason,

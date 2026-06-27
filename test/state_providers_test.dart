@@ -761,6 +761,66 @@ void main() {
     expect(t.currentDistance, 0.0);
   });
 
+  test(
+      'cold-start: speed=0 while moving falls back to displacement-derived speed',
+      () async {
+    // Regression for the Pixel drive test: the chipset reported speed=0 on
+    // ~20% of fixes while the car was moving (GPS cold-start), so the readout
+    // showed 0 km/h at 30+ and the odometer added nothing. The displacement
+    // fallback derives the speed from distance/time and advances the odometer
+    // by the actual displacement, keeping the readout alive until Doppler
+    // warms up.
+    await readController().startStage();
+
+    final t0 = DateTime(2026, 6, 24, 12, 0, 0);
+    // Baseline: a moving fix with a real Doppler speed so `last` is seeded.
+    gps.controller.add(_pos(speed: 8, at: t0, accuracy: 10)); // ~28.8 km/h
+    await Future<void>.delayed(Duration.zero);
+    // Cold-start fix: chipset reports speed=0, but the car moved 60 m in 6 s
+    // (= 36 km/h). Good accuracy (10 m), displacement (60 m) clears the jitter
+    // floor (max(10, 2*10) = 20 m) → derived = 36 km/h, accepted and shown;
+    // the odometer advances by the actual 60 m (0.06 km), not 0.
+    gps.distanceOverrides.add(60.0);
+    gps.controller.add(
+        _pos(speed: 0, at: t0.add(const Duration(seconds: 6)), accuracy: 10));
+    await Future<void>.delayed(Duration.zero);
+
+    final t = container.read(stageControllerProvider).telemetry;
+    expect(t.currentSpeed, closeTo(36, 1e-6));
+    expect(t.currentDistance, closeTo(0.06, 1e-6));
+    // The fallback fired and was logged so a track-test record proves it.
+    final fallbacks = logger.records
+        .where((r) => r['type'] == 'speed_fallback')
+        .map((r) => r['data'] as Map<String, Object?>)
+        .toList();
+    expect(fallbacks, isNotEmpty);
+    expect((fallbacks.last['derivedKmh'] as num).toDouble(), closeTo(36, 1e-6));
+  });
+
+  test(
+      'cold-start: a teleport while "stopped" (speed=0, junk displacement) is not faked into motion',
+      () async {
+    // The jitter floor + physical clamp must keep the A059 derivation junk out:
+    // a 0-speed fix whose fake displacement implies an implausible speed must
+    // NOT turn into a phantom reading (derived capped to null → speed 0,
+    // odometer untouched).
+    await readController().startStage();
+
+    final t0 = DateTime(2026, 6, 24, 12, 0, 0);
+    gps.controller.add(_pos(speed: 0, at: t0, accuracy: 10)); // stopped baseline
+    await Future<void>.delayed(Duration.zero);
+    // 0 speed, 1 s later, but the fake "moved" 100 m → 360 km/h, above the
+    // physical ceiling → no fallback: speed stays 0, odometer stays 0.
+    gps.distanceOverrides.add(100.0);
+    gps.controller.add(
+        _pos(speed: 0, at: t0.add(const Duration(seconds: 1)), accuracy: 10));
+    await Future<void>.delayed(Duration.zero);
+
+    final t = container.read(stageControllerProvider).telemetry;
+    expect(t.currentSpeed, 0.0);
+    expect(t.currentDistance, 0.0);
+  });
+
   test('a speed spike is rejected (impossible acceleration)', () async {
     // Regression for the reported "180 km/h in the city". A single junk fix
     // claiming a huge speed can't snap the readout: the |dv|/dt rate cap holds

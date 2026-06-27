@@ -84,15 +84,6 @@ class RetrometerColors {
   static const Color labelPlate = Color(0xFF251F1A); // etched label plate fill
   static const Color labelInk = Color(0xFFA99D88); // etched label plate text
   static const Color warn = Color(0xFFE8B53F);
-
-  /// A translucent fill + matching border for status/standing pills, tinted by
-  /// [color] — the chip pattern used by `_StandingBadge` and stage status.
-  static BoxDecoration pillDecoration(Color color, {double radius = 6}) =>
-      BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(radius),
-        border: Border.all(color: color.withValues(alpha: 0.5)),
-      );
 }
 
 // ---------------------------------------------------------------------------
@@ -271,7 +262,7 @@ class RetrometerPalette extends ThemeExtension<RetrometerPalette> {
   final Color warn;
 
   /// A translucent fill + matching border for status/standing pills, tinted by
-  /// [color] — the instance twin of [RetrometerColors.pillDecoration].
+  /// [color] — the chip pattern used by `_StandingBadge` and stage status.
   BoxDecoration pillDecoration(Color color, {double radius = 6}) => BoxDecoration(
         color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(radius),
@@ -422,7 +413,6 @@ class RetrometerRadii {
   static const double chip = 10;
   static const double control = 12;
   static const double card = 16;
-  static const double sheet = 20;
   static const double tile = 20;
   static const double band = 28;
   static const double appIcon = 22;
@@ -444,25 +434,12 @@ class RetrometerSpacing {
   static const double s32 = 32;
 }
 
-/// Named icon-size scale for the recurring icons.
-class RetrometerIconSizes {
-  const RetrometerIconSizes._();
-
-  static const double sm = 15;
-  static const double md = 18;
-  static const double lg = 22;
-  static const double xl = 46;
-  static const double empty = 56;
-}
-
 /// Named animation durations.
 class RetrometerDurations {
   const RetrometerDurations._();
 
   static const Duration bandTransition = Duration(milliseconds: 200);
   static const Duration deltaFlash = Duration(milliseconds: 700);
-  static const Duration overSpeedPulse = Duration(milliseconds: 500);
-  static const Duration ledPulse = Duration(milliseconds: 1100);
 }
 
 // ---------------------------------------------------------------------------
@@ -480,243 +457,16 @@ class _Fonts {
   static const String body = 'Roboto';
 }
 
-/// Named text styles used across screens. The static members carry the dark
-/// palette (used in `const` contexts and as the universal fallback); for
-/// mode-aware styles read `context.text.<name>` instead.
+/// Mode-agnostic text-style constants. Only [`metaMuted`] is used directly as a
+/// const default (e.g. `SpeedSummaryLine`); the rest of the app reads
+/// mode-aware styles via `context.text.<name>` ([RetrometerTypography]).
 class RetrometerTextStyles {
   const RetrometerTextStyles._();
 
-  static const List<FontFeature> _tabular = [FontFeature.tabularFigures()];
-
-  // Cockpit Δ zone.
-  static TextStyle bandLabel(Color c) => TextStyle(
-        color: c,
-        fontFamily: _Fonts.stencil,
-        fontSize: 44,
-        fontWeight: FontWeight.bold,
-        letterSpacing: 4,
-      );
-  static const TextStyle deltaNumber = TextStyle(
-    fontFamily: _Fonts.mono,
-    color: RetrometerColors.textPrimary,
-    fontSize: 180,
-    fontWeight: FontWeight.bold,
-    fontFeatures: _tabular,
-    height: 1,
-  );
-  static TextStyle deltaNumberColored(Color c) =>
-      deltaNumber.copyWith(color: c);
-  static const TextStyle deltaSubtitle = TextStyle(
-    color: RetrometerColors.textSecondary,
-    fontFamily: _Fonts.body,
-    fontSize: 22,
-  );
-  static const TextStyle deltaStageName = TextStyle(
-    color: RetrometerColors.primary, // amber — stage identity
-    fontFamily: _Fonts.stencil,
-    fontSize: 22,
-    fontWeight: FontWeight.bold,
-    fontFeatures: _tabular,
-  );
-
-  // Trip-meter.
-  static const TextStyle distanceNumber = TextStyle(
-    color: RetrometerColors.textPrimary,
-    fontFamily: _Fonts.mono,
-    fontSize: 120,
-    fontWeight: FontWeight.bold,
-    fontFeatures: _tabular,
-    height: 1,
-  );
-  static const TextStyle distanceUnit = TextStyle(
-    color: RetrometerColors.textTertiary,
-    fontFamily: _Fonts.stencil,
-    fontSize: 28,
-    letterSpacing: 1.2,
-  );
-  static const TextStyle adjustSign = TextStyle(
-    color: RetrometerColors.textPrimary,
-    fontFamily: _Fonts.mono,
-    fontSize: 72,
-    fontWeight: FontWeight.bold,
-    height: 1,
-  );
-  static const TextStyle adjustAmount = TextStyle(
-    color: RetrometerColors.textSecondary,
-    fontFamily: _Fonts.stencil,
-    fontSize: 20,
-    letterSpacing: 0.8,
-  );
-  static const TextStyle adjustLong = TextStyle(
-    color: RetrometerColors.textMuted,
-    fontFamily: _Fonts.body,
-    fontSize: 13,
-  );
-
-  // Top bar.
-  static TextStyle topBarText({bool compact = false}) => TextStyle(
-        color: RetrometerColors.textPrimary,
-        fontFamily: _Fonts.body,
-        fontSize: compact ? 15 : 18,
-        fontWeight: FontWeight.bold,
-        fontFeatures: _tabular,
-      );
-  static TextStyle competitionRow = TextStyle(
-    color: RetrometerColors.primary,
-    fontFamily: _Fonts.stencil,
-    fontSize: 13,
-    letterSpacing: 0.6,
-  );
-
-  /// The big elapsed-time readout in the cockpit top bar. Hoisted here from
-  /// `cockpit_top_bar.dart` so it is `const` and lives with the rest of the
-  /// type system.
-  static const TextStyle topBarElapsed = TextStyle(
-    color: RetrometerColors.primary, // amber LCD
-    fontFamily: _Fonts.mono,
-    fontSize: 30,
-    fontWeight: FontWeight.bold,
-    fontFeatures: _tabular,
-    height: 1,
-  );
-
-  // Control buttons (START/STOP/RESET).
-  static const TextStyle controlLabel = TextStyle(
-    color: RetrometerColors.onActionFill,
-    fontFamily: _Fonts.body,
-    fontWeight: FontWeight.bold,
-    fontSize: 14,
-    letterSpacing: 0.6,
-  );
-
-  // Over-speed alert.
-  static const TextStyle overSpeed = TextStyle(
-    color: RetrometerColors.danger,
-    fontFamily: _Fonts.stencil,
-    fontSize: 22,
-    fontWeight: FontWeight.bold,
-    letterSpacing: 1.2,
-  );
-
-  // Tiles / list.
-  static const TextStyle tileTitle = TextStyle(
-    color: RetrometerColors.textPrimary,
-    fontFamily: _Fonts.stencil,
-    fontSize: 18,
-    fontWeight: FontWeight.bold,
-    letterSpacing: 0.4,
-  );
-  static const TextStyle headerTitle = TextStyle(
-    color: RetrometerColors.textPrimary,
-    fontFamily: _Fonts.stencil,
-    fontSize: 20,
-    fontWeight: FontWeight.bold,
-    letterSpacing: 0.4,
-  );
-  static const TextStyle meta = TextStyle(
-    color: RetrometerColors.textTertiary,
-    fontFamily: _Fonts.body,
-    fontSize: 13,
-  );
-  static const TextStyle metaStrong = TextStyle(
-    color: RetrometerColors.textSecondary,
-    fontFamily: _Fonts.body,
-    fontSize: 13,
-  );
   static const TextStyle metaMuted = TextStyle(
     color: RetrometerColors.textMuted,
     fontFamily: _Fonts.body,
     fontSize: 13,
-  );
-  static const TextStyle tileTime = TextStyle(
-    color: RetrometerColors.textSecondary,
-    fontFamily: _Fonts.body,
-    fontSize: 14,
-  );
-
-  // Badges / pills.
-  static const TextStyle badge = TextStyle(
-    fontFamily: _Fonts.stencil,
-    fontSize: 11,
-    fontWeight: FontWeight.bold,
-    letterSpacing: 0.8,
-  );
-
-  // Section labels inside sheets.
-  static const TextStyle sectionLabel = TextStyle(
-    color: RetrometerColors.primary,
-    fontFamily: _Fonts.stencil,
-    fontSize: 16,
-    letterSpacing: 0.8,
-  );
-  static const TextStyle sheetTitle = TextStyle(
-    color: RetrometerColors.textPrimary,
-    fontFamily: _Fonts.stencil,
-    fontSize: 22,
-    fontWeight: FontWeight.bold,
-    letterSpacing: 0.4,
-  );
-
-  // Field rows.
-  static const TextStyle fieldLabel = TextStyle(
-    color: RetrometerColors.textSecondary,
-    fontFamily: _Fonts.body,
-    fontSize: 16,
-  );
-  static const TextStyle fieldLabelSmall = TextStyle(
-    color: RetrometerColors.textSecondary,
-    fontFamily: _Fonts.body,
-    fontSize: 15,
-  );
-  static const TextStyle fieldInput = TextStyle(
-    color: RetrometerColors.textPrimary,
-    fontFamily: _Fonts.body,
-    fontSize: 20,
-  );
-  static const TextStyle fieldInputSmall = TextStyle(
-    color: RetrometerColors.textPrimary,
-    fontFamily: _Fonts.body,
-    fontSize: 18,
-  );
-  static const TextStyle fieldHint = TextStyle(
-    color: RetrometerColors.hint,
-    fontFamily: _Fonts.body,
-  );
-
-  // Empty states.
-  static const TextStyle emptyTitle = TextStyle(
-    color: RetrometerColors.textTertiary,
-    fontFamily: _Fonts.body,
-    fontSize: 16,
-    height: 1.4,
-  );
-  static const TextStyle emptyTitleSmall = TextStyle(
-    color: RetrometerColors.textTertiary,
-    fontFamily: _Fonts.body,
-    fontSize: 15,
-    height: 1.4,
-  );
-
-  // Error / inline notice.
-  static const TextStyle fieldError = TextStyle(
-    color: RetrometerColors.danger,
-    fontFamily: _Fonts.body,
-    fontSize: 12,
-  );
-
-  // Guide.
-  static const TextStyle guideSection = TextStyle(
-    color: RetrometerColors.primary,
-    fontFamily: _Fonts.stencil,
-    fontSize: 18,
-    fontWeight: FontWeight.bold,
-    letterSpacing: 0.6,
-  );
-  static const TextStyle guideRow = TextStyle(
-    color: RetrometerColors.textSecondary,
-    fontFamily: _Fonts.body,
-    fontSize: 15,
-    height: 1.35,
   );
 }
 

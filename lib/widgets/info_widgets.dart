@@ -95,7 +95,7 @@ class HeaderRow extends StatelessWidget {
 }
 
 /// A small coloured pill with a text label (status badges, standings). Uses
-/// [RetrometerColors.pillDecoration] so the background/border match the text
+/// `context.colors.pillDecoration` so the background/border match the text
 /// color.
 class StatusPill extends StatelessWidget {
   const StatusPill({super.key, required this.text, required this.color});

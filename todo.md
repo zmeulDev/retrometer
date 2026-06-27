@@ -24,13 +24,15 @@ band label → Δ number (hero) → spacer → **stage name (footer)** → **spe
 
 ---
 
-# Issue-uri din testul pe traseu A059 (24–25 iunie)
+# Issue-uri din testul pe traseu A059 (24–25 iunie) — DEPRECATA
+
+> **A059 (Xiaomi) e deprecata; seria A059 a fost ștearsă** (viteza = `position.speed` direct, FusedLocation). Cele de mai jos rămân ca istoric; itemii A și E (workarounds A059) sunt rezolvați definitiv prin refactor — vezi `handoff.md` §„Validare pe traseu A059 — DEPRECATA" + §Pixel.
 
 Sursa: log de telemetrie pull-abil (`retrometer_telemetry.log`, 171 recorduri, 126 fix-uri GPS, 7 stagii). Analiză via `tool/analyze_telemetry_log.dart`. Confirmări pe hardware + bug-uri noi.
 
 ## Confirmări (funcționează corect, nu se ating)
 
-- **Bug A059 `position.speed==0` în mișcare — confirmat.** Doar 2/126 fix-uri au `rawSpeedMps > 0`. Derivarea distanță/timp (`state_providers.dart:205`) e necesară.
+- **Bug A059 `position.speed==0` în mișcare — confirmat (istoric).** Pe A059 doar 2/126 fix-uri au `rawSpeedMps > 0`. Pe Pixel 9 Pro XL, FusedLocation (`kForceAndroidLocationManager = false`) populează `position.speed` — derivarea din distanță/timp nu mai e necesară (ștearsă).
 - **Auto-start OR-logic cu GPS real — OK.** 4 prompt-uri „în geofence" (11–94m), 3 confirmate, 1 declinat.
 - **Pause/resume — OK.** Singurul pause→resume (stg6) cu `pauseOffsetSeconds` corect.
 - **Finish-location prompt — OK când NU e precedat de finish-time dismiss** (stg6: `finish_entered`→`finish_location`+18ms→`finish_confirm`).
@@ -38,12 +40,7 @@ Sursa: log de telemetrie pull-abil (`retrometer_telemetry.log`, 171 recorduri, 1
 
 ## Bug-uri noi de rezolvat
 
-- [~] **A. CRITIC: jitter GPS → viteze derivate absurde + odometru umflat** — **A1 făcut (clamp + gate accuracy + logging); A2 (odometer-cap) pending date noi de pe device.**
-  - **Simptom:** `maxSpeedKmh` 521–567 km/h scris în `StageResult` → SQLite `stage_history` → overview ar arăta „PESTE LIMITĂ 567 km/h". `addedM` de 1029m / 1444m într-un singur fix.
-  - **Root cause:** distribuție accuracy: 23 fix <25m, 31 în 25–50m, **47 în 50–100m, 6 în 100–200m, 19 ≥200m (până la 600m)**. Pragul de mișcare `_kMovingThresholdMetres = 5.0` (`state_providers.dart:20`) e sub jitter-ul tipic pentru accuracy slab → orice fix care sare >5m primește `addedMetres/dt` = viteze imposibile.
-  - **A1 (făcut):** gate pe accuracy pe calea derivată (`_kPoorAccuracyMetres = 50.0` — fix-urile cu accuracy >50m țin viteza anterioară, nu injectează junk; `accuracy==0` trece), clamp backstop `_kMaxDerivedSpeedKmh = 200.0`, event `fix_speed_held` în log. Distanța se acumulează în continuare (A1 nu sub-numără). 2 teste (`poor-accuracy fix does not inflate maxSpeedKmh`, `derived speed is clamped to the backstop ceiling`).
-  - [ ] **A2 (pending):** odometru — plafează `addedM` per fix pe baza count-ului `fix_speed_held` + distribuției accuracy din noul log post-fix (necesită date pe device). Fereastră mobilă (median pe ultimele N fix-uri bune) în loc de `addedMetres/dt` pe un singur interval — opțional, dacă A1 + E nu suficient.
-  - **Validare A1:** refă test pe A059/device nou, verifică în log `speedKmh` ≤ 200, `maxKmh` rezonabil, `fix_speed_held` events pentru accuracy >50m.
+- [x] **A. CRITIC: jitter GPS → viteze derivate absurde + odometru umflat — REZOLVAT DEFINITIV (refactor post-Pixel, A059 deprecata).** Vezi `handoff.md` §„Validare pe traseu A059 — DEPRECATA" + §Pixel. Soluția curentă (în cod): viteza = `position.speed × 3.6` direct (FusedLocation, `kForceAndroidLocationManager = false`) + **fallback derivat din deplasare când `position.speed==0` în mișcare** (cold-start — drive test 27 iun a arătat că FusedLocation raportează speed=0 pe ~20% din fix-uri în mișcare; vezi §Pixel), odometru = `∫doppler·dt` / `addedMetres` (hibrid, jitter-imun), gating `_kPoorAccuracyMetres=50`/`_kMaxPlausibleSpeedKmh=250`/`_kMaxAccelKmhPerSecond=36`/`_kMovingThresholdMetres=10` (jitter floor gated, NU constanta A059), evenimente `fix_rejected` + `speed_fallback`. Seria A059 (derivare oarbă din distanță/timp, `_kMaxDerivedSpeedKmh`, `fix_speed_held`, A2 odometer-cap) a fost **ștearsă** — nu mai aplicați.
 
 - [x] **B. UX: dismiss la finish-time suprimă finish-location pe toată durata stagiului** — **făcut (guard per-reason).**
   - **Simptom:** stg7 — `finish_time` la 45s (11:37:35) → `finish_dismiss` (11:37:42). 16 min mai târziu `finish_entered` la 11:53:02 (90m) și 11:53:13 (94m), ambele ≤200m, dar **niciun `finish_location`, niciun dialog** → stagiu terminat doar prin STOP manual (995s).
@@ -60,12 +57,6 @@ Sursa: log de telemetrie pull-abil (`retrometer_telemetry.log`, 171 recorduri, 1
   - **Fix (făcut):** `snoozeUntil` (`competition_providers.dart:484`) + `startTime` în `autostart_prompt` data (`:418`) serializate ca UTC (`toUtc().toIso8601String()`) ca să match-eze `ts`. `_telemetryJson` (`startTime`/`pausedSince`) rămâne **local** intenționat — înregistrările lifecycle (`stop`/`start`) carie și `result.completedAt`/`startedAt`/`completedAt` (model toJson, local); păstrarea lor locală ține fiecare înregistrare lifecycle intern-consistentă (altfel `startTime` UTC vs `completedAt` local ar părea 3h în aceeași înregistrare). Câmpurile standalone comparate direct cu `ts` sunt UTC; payload-urile lifecycle sunt local — regulă curată pe context.
   - **Out of scope (latent):** model `toJson` DateTimes (`StageResult.completedAt`, `StageRunHistory.startedAt`/`completedAt`, `Competition.startDate`/`endDate`, `PlannedStage.startTime`) sunt încă local-no-Z în SQLite + log. UTC-izarea lor ar necesita audit `.toLocal()` în formaterii UI (`formatTime` din `utils/formatting.dart` face `dt.hour` direct — ar afișa 3h dezloc pe DateTimes UTC). Risc user-visible → amânat. Reader-ele (`DateTime.tryParse`) sunt robuste la ambele formate, deci o eventuală migrare e soft (one-way).
 
-## Geolocator: adoptă `AndroidSettings` (nu schimba pachetul)
+## Geolocator: adoptă `AndroidSettings` — REZOLVAT (refactor post-Pixel)
 
-- [~] **E. `AndroidSettings` în `GeolocatorGpsService`** (`lib/services/gps_service.dart`) — **implementat flagged (default off); validare pe device pending.**
-  - **De ce:** foloseam `LocationSettings` generic → FusedLocationProvider pe defaults → exact comportamentul A059 (speed=0, accuracy 600m, fix-uri la 13s cu jitter). geolocator expune `AndroidSettings` (via `geolocator_android` tranzițiv, re-exportat din `package:geolocator/geolocator.dart`) cu knob-uri direct relevante.
-  - **Făcut:** helper `_locationSettings` — pe `Platform.isAndroid` construiește `AndroidSettings(forceLocationManager: kForceAndroidLocationManager, intervalDuration: ..., timeLimit: ...)`; altfel `LocationSettings` generic. `positionStream` folosește `intervalDuration: 1s` (fix-uri regulate 1Hz); `getCurrentPosition` one-shot (fără intervalDuration). `positionProvider` (feed localitate/LED, `LocationAccuracy.low`) **neatins** — nu-i trebuie fix-uri dense. `AndroidSettings` re-exportat din `geolocator` (fără import nou); câmpuri confirmate în `geolocator_android-5.0.3`.
-  - [ ] **`forceLocationManager`** — în spatele `const kForceAndroidLocationManager = false` (top of `gps_service.dart`). OFF by default — verifică pe device real înainte de flip (unele Android-uri au LocationManager GPS lent/blocat).
-  - [x] **`intervalDuration: 1s`** — live pe Android pentru stream-ul de stagiu (dt mic+constant → viteza derivată nu mai e amplificată de jitter + odometru lin). Comportament schimbat pe Android (înainte: default FusedLocationProvider, fix-uri la ~13s); pe celelalte platforme zero impact.
-  - **Validare (pe device, în afara suitei automate):** pornește un stagiu, verifică în log `dtMs` ~1000ms constant. După flip `kForceAndroidLocationManager = true`: `rawSpeedMps > 0` la fix-urile cu accuracy bună. Confirmă pe A059 sau device nou înainte de permanentizare.
-  - **NU rezolvă:** `position.speed` passthrough (derivarea distanță/timp rămâne necesară oricum) + filtrarea accuracy (responsabilitatea noastră — vezi bug A). `AndroidSettings` + gating accuracy sunt complementare.
+- [x] **E. `AndroidSettings` în `GeolocatorGpsService`** (`lib/services/gps_service.dart`) — **implementat.** Helper `_locationSettings` construiește `AndroidSettings` pe `Platform.isAndroid` cu `forceLocationManager: kForceAndroidLocationManager` + `intervalDuration: 1s` pentru stream-ul de stagiu (`bestForNavigation: true`); altfel `LocationSettings` generic. `kForceAndroidLocationManager = false` (FusedLocationProvider) — deblochează `position.speed` pe Pixel (log-ul Pixel a confirmat: raw LM întorcea `speed=0` la toate fix-urile). Vezi `handoff.md` §Pixel pentru findings complete.
